@@ -1,0 +1,96 @@
+\documentclass{memoir}
+
+\title{Distributed Systems:\\Crossing intersection with autonomous vehicles}
+
+\author{Antonio Toncetti\\Gabriele Venturato\\\\DMIF, University of Udine, Italy}
+
+\date{%Version 0.1, 
+	\today}
+
+\begin{document}
+
+
+%\begin{titlingpage}
+\maketitle
+\begin{abstract}
+The aim of this project is to provide an implemented solution for the problem of crossing an intersection by autonomous vehicles.
+Even with some simplifications, this can be considered a real-case scenario for this problem.
+
+The solution proposed here try to be more general and modular as possible, in order to be possibly extended in a concrete situation.
+\end{abstract}
+%\end{titlingpage}
+
+\end{document}
+
+\chapter{Introduction}\label{ch:intro}
+
+In this chapter you describe the main problem, and an idea of the solution.
+It is not necessary to be very detailed or formal, but it is important to explain which are the main aims and issues from the point of view of Distributed Systems:
+\begin{itemize}
+\item A description of the application.
+\item The overall structure of the implementation: how resources are deployed, which are the players, the r\^oles.
+\item The distributed system features (and the transparencies) and algorithms you intend to implement.
+\item Your plan for testing the system.
+\item A schedule for how you plan to carry our your design and implementation
+\end{itemize}
+
+\chapter{Analysis}\label{ch:analysis}
+
+In this chapter, we describe in detail functional and non-functional requirements of a solution for the problem.
+
+\section{Functional requirements}
+Which functions must be offered to users / other programs?  Which are the input data and the output data? Which is the expected effect? 
+
+\section{Non functional requirements}
+Everything about mode and transparencies: availability, mobility, security, fault tolerance, etc.
+
+Are there execution time bounds? Minimum data rates?
+
+If requested, specific platforms/languages/middlewares requirements for the implementation can be decided here. (E.g.: if the project is on a SOA, we may request that functions are offered via SOAP or RESTful services). 
+
+
+
+\chapter{Project}
+
+This chapter is devoted to the description of the general architectures, and specific algorithms.
+
+\section{Logical architecture}
+Describe the components of your systems: modules/objects/components/services.
+For each component, describe the functionalities it implements, and by who is used.
+
+\section{Protocols and algorithms}
+Communication between components.  UML sequence diagrams go here.
+
+Also, put here a detailed description of distributed algorithms used to solve specific problems of the project.
+
+\section{Physical architecture and deployment}
+Which nodes and platforms involved, and where each component is deployed.
+
+\section{Development plan}
+Since it is difficult to predict just how hard implementing a new system will be, you should formulate as a set of ``tiers,'' where the basic tier is something you’re sure you can complete, and the additional tiers add more features, at both the application and the system level.
+
+\chapter{Implementation}
+
+Details about the implementation: every choice about platforms, languages, software/hardware, middlewares, which has not been decided in the requirements.
+
+
+Important choices about implementation should be described here; e.g., peculiar data structures.
+
+
+\chapter{Validation}
+
+Check if requirements from Chapter~\ref{ch:analysis} have been fulfilled.
+Quantitative tests (simulations) and screenshots of the interfaces are put here.
+
+
+\chapter{Conclusions}
+
+What has been done with respect to what has been promised in Chapters~\ref{ch:intro} and \ref{ch:analysis}, and what is left out.
+
+\appendix
+
+\chapter{Appendix}
+
+In the Appendix you can put code snippets, snapshots, installation instructions, etc.
+
+\end{document}
