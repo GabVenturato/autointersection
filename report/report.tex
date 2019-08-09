@@ -1,6 +1,9 @@
 \documentclass{memoir}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{ {figures/} }
 
-\title{Distributed Systems:\\Crossing intersection with autonomous vehicles}
+\title{Distributed Systems:\\Crossing Intersection with Autonomous Vehicles}
 
 \author{Antonio Toncetti\\Gabriele Venturato\\\\DMIF, University of Udine, Italy}
 
@@ -14,83 +17,103 @@
 \maketitle
 \begin{abstract}
 The aim of this project is to provide an implemented solution for the problem of crossing an intersection by autonomous vehicles.
-Even with some simplifications, this can be considered a real-case scenario for this problem.
+Although it relies on some simplifications, this can be considered a real-case scenario for this problem.
 
 The solution proposed here try to be more general and modular as possible, in order to be possibly extended in a concrete situation.
 \end{abstract}
 %\end{titlingpage}
 
-\end{document}
-
 \chapter{Introduction}\label{ch:intro}
 
-In this chapter you describe the main problem, and an idea of the solution.
-It is not necessary to be very detailed or formal, but it is important to explain which are the main aims and issues from the point of view of Distributed Systems:
-\begin{itemize}
-\item A description of the application.
-\item The overall structure of the implementation: how resources are deployed, which are the players, the r\^oles.
-\item The distributed system features (and the transparencies) and algorithms you intend to implement.
-\item Your plan for testing the system.
-\item A schedule for how you plan to carry our your design and implementation
-\end{itemize}
+The problem to solve is the one in which there is a crossroads, and some autonomous vehicles have to cross it without car accidents. 
+
+The idea is to solve the problem for a generic intersection. The autonomous vehicles can't rely on a central server, they have to cooperate with each other to cross the intersection taking decisions that ensures a \emph{fair} and \emph{safe} policy. In particular there will be two actors in the proposed solution: vehicles and an environment. The latter is necessary in this context to simulate sensors that are usually inside an autonomous vehicle and that let it to move in the environment (e.g. GPS, cameras, etc\dots).
+The system is \emph{fault tolerant}, but not byzantines processes nor cybersecurity are taken in consideration, for simplification purpose.
+
+The report starts analyzing the project: Chapter~\ref{ch:analysis} is devoted to functional and non-functional requirements, and assumptions too. Chapter~\ref{ch:project} contains the description of the general architectures, and specific algorithms.
+
+Then follows chapters aimed to: describe details of the implementation, and validation w.r.t. requirements.
+
+
 
 \chapter{Analysis}\label{ch:analysis}
 
-In this chapter, we describe in detail functional and non-functional requirements of a solution for the problem.
+In this chapter are described in detail some fundamental assumptions, as well as functional and non-functional requirements.
+
+\section{Assumptions}
+Some general considerations are here presented. First of all it's assumed a situation in which each autonomous vehicle knows its destination and the roads it has to travel, since it's supposed to have a navigation system that allows this.
+
+Moreover it's assumed, for sake of simplicity, that all vehicles have the same dimension --- or better: that each vehicle can fit into a single position of the internal model used to represent the roads.
+
+Further assumptions are:
+
+\begin{itemize}
+	\item \emph{Faults}: at each moment a fault can happen in vehicles --- software or hardware. An hardware crash doesn't compromise the software abilities, but a software crash implies an hardware crash. Since we can assume that if the software fails, the hardware goes in ``emergency mode'' and stop itself. It's also assumed that if a crash happens in queues, there's enough space for the other vehicles to overtake the faulted one; but if the crash happen inside the crossroads it must be managed with the removal of the faulted vehicle by a tow truck (or something similar).
+	\item \emph{Moves}: the path that a vehicle can take inside the interception is predefined and known a priori. From each position there's a unique path to each of the destinations, and no one can modify or choose a different path. An visual representation of this assumption can be found in Figure~\ref{fig:intersection-graph}, in which green dots represent position occupied while crossing, and light-blue dots are the destinations. Once a vehicle reaches its destination, it is considered ``satisfied'', and can not fail anymore, it can only move forward on its own way. Reverse is not allowed.
+\end{itemize}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.4\linewidth]{intersection_graph.pdf}
+	\caption{Example of predefined movements that a vehicle can follow in crossing an intersection.}
+	\label{fig:intersection-graph}
+\end{figure}
 
 \section{Functional requirements}
-Which functions must be offered to users / other programs?  Which are the input data and the output data? Which is the expected effect? 
+The solution provide two main modules: \emph{vehicle} and \emph{environment}
+
+\subsection{Vehicle}
+Each vehicle at any moment has an internal state, and moreover:
+
+\begin{itemize}
+	\item knows its position and what happens around itself, through the environment (in a real context this is handled by sensors like GPS): it can view if there are other vehicles trying to cross, or if there are someone before or after its position;
+	\item communicate with its neighbors sharing: the direction it want to travel, its internal state, its next position if allowed to move;
+	\item if in the queue, it knows nothing but its internal information and that it is inside the queue with someone before it and possibly someone following, it can communicate only with these two;
+	\item if in the first position of the queue, it can connect with the other vehicles that are going to cross (that are in the first position of the other queues), and to the vehicle behind it;
+\end{itemize}
+
+\subsection{Environment}
+The environment represent vehicles possibility to use their sensors. It knows the intersection shape and dimension; it knows vehicles approaching the crossroads and the ones in the queues; it provide vehicles with all environmental information.
 
 \section{Non functional requirements}
-Everything about mode and transparencies: availability, mobility, security, fault tolerance, etc.
+The system doesn't handle byzantines processes nor cybersecurity issues.
 
-Are there execution time bounds? Minimum data rates?
+\begin{itemize}
+	\item \emph{Safeness}: there can't be more than a vehicle in the same position at the same time;
+	\item \emph{Liveness}: if a vehicle approaches the intersection and is waiting to cross it, eventually it will cross it;
+	\item \emph{Fairness}: if a vehicle approaches the intersection and is waiting to cross it, there exists a bound for the waiting;
+	\item \emph{Fault Tolerant}: the system is tolerant to hardware and software crashes;
+	\item \emph{Distributed}: there is no central server, vehicles have to coordinate each other.
+\end{itemize}
 
-If requested, specific platforms/languages/middlewares requirements for the implementation can be decided here. (E.g.: if the project is on a SOA, we may request that functions are offered via SOAP or RESTful services). 
 
 
+\chapter{Project}\label{ch:project}
 
-\chapter{Project}
-
-This chapter is devoted to the description of the general architectures, and specific algorithms.
+The project is developed in \href{https://www.erlang.org/}{Erlang}
 
 \section{Logical architecture}
-Describe the components of your systems: modules/objects/components/services.
-For each component, describe the functionalities it implements, and by who is used.
 
 \section{Protocols and algorithms}
-Communication between components.  UML sequence diagrams go here.
-
-Also, put here a detailed description of distributed algorithms used to solve specific problems of the project.
 
 \section{Physical architecture and deployment}
-Which nodes and platforms involved, and where each component is deployed.
 
 \section{Development plan}
-Since it is difficult to predict just how hard implementing a new system will be, you should formulate as a set of ``tiers,'' where the basic tier is something you’re sure you can complete, and the additional tiers add more features, at both the application and the system level.
-
-\chapter{Implementation}
-
-Details about the implementation: every choice about platforms, languages, software/hardware, middlewares, which has not been decided in the requirements.
 
 
-Important choices about implementation should be described here; e.g., peculiar data structures.
+
+%\chapter{Implementation}
 
 
-\chapter{Validation}
-
-Check if requirements from Chapter~\ref{ch:analysis} have been fulfilled.
-Quantitative tests (simulations) and screenshots of the interfaces are put here.
+%\chapter{Validation}
 
 
-\chapter{Conclusions}
+%\chapter{Conclusions}
 
-What has been done with respect to what has been promised in Chapters~\ref{ch:intro} and \ref{ch:analysis}, and what is left out.
 
-\appendix
 
-\chapter{Appendix}
+%\appendix
 
-In the Appendix you can put code snippets, snapshots, installation instructions, etc.
+%\chapter{Appendix}
 
 \end{document}
