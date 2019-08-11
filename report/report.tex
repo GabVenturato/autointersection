@@ -99,6 +99,42 @@ The project is developed in \href{https://www.erlang.org/}{Erlang}
 
 \section{Protocols and algorithms}
 
+The algorithm described in this section applies to generic intersections. Vehicles queue up along the roads leading to an intersection awaiting for their turn to cross. The first vehicle of a queue is the vehicle at the verge of entering the intersection and we will call such vehicle a participant of the intersection crossing algorithm.
+
+\subsection{Intersection Crossing Algorithm}
+
+The algorithm maintains the following invariant through execution:
+
+\begin{itemize}
+	\item one vehicle per time can cross the intersection
+	\item only the leader vehicle can cross the intersection
+\end{itemize}
+Algorithm description:
+\begin{enumerate}
+	\item The participants (first vehicles in their respective queues) are willing to cross the intersection
+	\item They start the Bully Algorithm to elect a leader.
+	\item The leader L identifies the next leader by choosing the first vehicle after him in a clockwise manner
+	\item The leader begins to cross the intersection
+	\item After the leader has successfully crossed the intersection, the lead passes to the chosen vehicle and the algorithm repeats from 3.
+\end{enumerate}
+Additional details:
+\begin{itemize}
+	\item After the leader election, every participant knows who is the current leader
+	\item Once the leader starts crossing, the vehicle behind him (if any) becomes a new participant and asks to join the algorithm. The other participants answer by providing the identity of the current leader
+\end{itemize}
+A leader election starts only when one or more vehicles join an empty intersection, i.e. when they become participants and no prior participants are available (the new vehicles don't receive an answer when asking to join the algorithm)
+
+\subsection{Managing abnormal cases}
+
+All participants monitor the leader, if the leader fails, everyone knows who the next leader is (see 3. in the algorithm description).
+
+\begin{itemize}
+	\item If the leader fails, the vehicle in clockwise order after him becomes the new leader and the algorithm restarts from 3.
+	\item If a participant fails, it is assumed that the next vehicle in the queue becomes a participant.
+	\item If a leader fails while crossing, everyone must wait a timeout T for the tow truck to clear the intersection
+	\item If the leader undergoes a mechanical failure, it notifies the successful crossing of the intersection (in order to pass the lead to the next vehicle) and requests to be removed. Vehicles in queue behind him must wait for its removal. If the failure happens during the crossing, it notifies the successful crossing only after being removed by the tow truck (?)
+\end{itemize}
+
 \section{Physical architecture and deployment}
 
 \section{Development plan}
