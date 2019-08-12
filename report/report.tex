@@ -183,7 +183,7 @@ Leader failures don't cause troubles if they are detected by their relative cand
 \end{figure}
 
 
-Another delicate situation is the represented in Figure~\ref{fig:seq-diag-new-participant}. The leader fails and before the candidate detects the failure, a new participants asks to join the algorithm. This situation is solved by the fact that both the leader and the candidate leader answer to new participant's calls. Therefore the new participant assumes that the candidate will be the next leader, so the algorithm can return to the normal flow.
+Another delicate situation is the represented in Figure~\ref{fig:seq-diag-new-participant}. The leader fails and before the candidate detects the failure, a new participants asks to join the algorithm. This situation is solved by the assumption that there exist a time bound to message delivery, therefore the new participant knows that in a prefixed amount of time it can receive the message of the new elected leader.
 
 \begin{figure}
 	\centering
