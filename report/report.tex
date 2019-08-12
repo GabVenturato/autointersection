@@ -52,6 +52,7 @@ Further assumptions are:
 \begin{itemize}
 	\item \emph{Faults}: at any moment a failure can arise in vehicles --- software or mechanical. A mechanical failure doesn't compromise the software abilities, but a software failure implies an hardware failure. Since we can assume that if the software fails, the autonomous vehicle stops and goes in ``emergency mode''. It's also assumed that if a crash happens in queues, there's enough space for the other vehicles to overtake the faulty one; but if the crash happens inside the crossroads it must be managed by removing the faulty vehicle with a tow truck (or something similar).
 	\item \emph{Moves}: the path that a vehicle can take inside the interception is predefined and known a priori. From each position there's a unique path to each destination, and no one can modify or choose a different path once decided. A visual representation of this assumption can be found in Figure~\ref{fig:intersection-graph}, in which green dots represent positions occupied while crossing, and light-blue dots are the destinations. Once a vehicle reaches its destination, it is considered ``satisfied'', and can not fail anymore, it can only move forward on its own way. Reversing is not allowed.
+	\item \emph{Message Delivery}: there exist an upper bound time in message passing between two nodes. This is justified by the fact that all connection are direct, without routers or broker that can cause bottle-necks or network congestion.
 \end{itemize}
 
 \begin{figure}
@@ -62,7 +63,7 @@ Further assumptions are:
 \end{figure}
 
 \section{Functional requirements}
-The solution provides two main modules: \emph{vehicle} and \emph{environment}
+The solution provides two main modules: \emph{vehicle} and \emph{environment}.
 
 \subsection{Vehicle}
 Each vehicle has an internal state at any moment. Moreover he:
@@ -75,7 +76,6 @@ Each vehicle has an internal state at any moment. Moreover he:
 \end{itemize}
 
 \subsection{Environment}
-
 The environment represent the vehicle's ability to use its sensors. It knows the intersection shape and dimension; it knows vehicles approaching the crossroads and the ones in the queues; it provides vehicles with all the information they need to safely manoeuvre within the environment.
 
 \section{Non functional requirements}
@@ -92,16 +92,31 @@ The system doesn't handle byzantine processes nor cybersecurity issues.
 
 
 \chapter{Project}\label{ch:project}
-
-The project is developed in \href{https://www.erlang.org/}{Erlang}
+This chapter is devoted to the description of the general architectures, and specific algorithms.
 
 \section{Logical architecture}
+The solution reckon on two main modules, and a secondary one for tests.
+
+\begin{itemize}
+	\item \emph{Vehicle}: it is represented as a finite state automaton. A graphical representation can be viewed in Figure~\ref{fig:vehicle-automaton}. Each state represent a situation in which the vehicle can be. It is in the Waiting state when it is in the queue and it's not the first. It's Ready when it's the first in its queue. It's in Election when an election is needed but the current leader has not yet finished the crossing. Crossing, Crossed, and Crash states are self-explanatory.
+	\item \emph{Environment}: it represent the physical environment accessible through autonomous vehicle sensors.
+	\item \emph{Random Generator}: it is a module aimed at (pseudo-)randomly generate vehicles that approach the intersection, and it is used to test and validate the solution proposed.
+\end{itemize}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\linewidth]{vehicle_automaton.pdf}
+	\caption{Vehicle as a finite state automaton.}
+	\label{fig:vehicle-automaton}
+\end{figure}
 
 \section{Protocols and algorithms}
-
-The algorithm described in this section applies to generic intersections. Vehicles queue up along the roads leading to an intersection awaiting for their turn to cross. The first vehicle of a queue is the vehicle at the verge of entering the intersection and we will call such vehicle a participant of the intersection crossing algorithm.
+In this section is described the algorithm to solve the core part of the project. Moreover, some peculiar situation sequence diagrams are provided.
 
 \subsection{Intersection Crossing Algorithm}
+Vehicles queue up along the roads leading to an intersection awaiting for their turn to cross. The first vehicle of a queue is the vehicle at the verge of entering the intersection and we will call such vehicle a \emph{participant} of the intersection crossing algorithm.
+
+Note that this algorithm applies to generic intersections. Moreover, it trivially guarantees the \emph{fairness} and \emph{liveness} requirements, thanks to its round robin characterization.
 
 The algorithm maintains the following invariant through execution:
 
@@ -111,38 +126,73 @@ The algorithm maintains the following invariant through execution:
 \end{itemize}
 Algorithm description:
 \begin{enumerate}
-	\item The participants (first vehicles in their respective queues) are willing to cross the intersection
-	\item They start the Bully Algorithm to elect a leader.
-	\item The leader L identifies the next leader by choosing the first vehicle after him in a clockwise manner
-	\item The leader begins to cross the intersection
-	\item After the leader has successfully crossed the intersection, the lead passes to the chosen vehicle and the algorithm repeats from 3.
+	\item The participants (first vehicles in their respective queues) are willing to cross the intersection;
+	\item They start a slightly modified version of the Bully Algorithm to elect a leader: it terminates with the leader $L$, and the next leader $L'$, which is the first vehicle after him in a clockwise manner;
+	\item $L$ begins to cross the intersection;
+	\item After $L$ has successfully crossed the intersection, the participants are informed;
+	\item $L'$ identifies the next leader $L''$ by choosing the first vehicle after him in a clockwise manner;
+	\item The lead passes to $L'$ informing every participant that it's the new leader;
+	\item The algorithm repeats from 3, where $L = L'$ and $L' = L''$.
 \end{enumerate}
 Additional details:
 \begin{itemize}
-	\item After the leader election, every participant knows who is the current leader
-	\item Once the leader starts crossing, the vehicle behind him (if any) becomes a new participant and asks to join the algorithm. The other participants answer by providing the identity of the current leader
+	\item After the leader election, every participant knows who is the current leader, and who is the next one;
+	\item Once the leader starts crossing, the vehicle behind it (if any) becomes a new participant and asks to join the algorithm. Only the leader answer, providing its identity.
+	\item Once the vehicle behind the leader move forward, it's assumed that all the vehicles in the queue moves forward too.
 \end{itemize}
-A leader election starts only when one or more vehicles join an empty intersection, i.e. when they become participants and no prior participants are available (the new vehicles don't receive an answer when asking to join the algorithm)
+A leader election starts only when new participants don't receive an answer when asking to join the algorithm. In particular: when one or more vehicles join an empty intersection, i.e. when they become participants and no prior participants are available, or when the candidate leader fails before becoming the new leader.
 
-\subsection{Managing abnormal cases}
+\subsubsection{Managing abnormal cases}
 
-All participants monitor the leader, if the leader fails, everyone knows who the next leader is (see 3. in the algorithm description).
+All participants monitor the leader and the candidate leader, if the leader fails, everyone knows who the next leader is (see 2. in the algorithm description).
 
 \begin{itemize}
-	\item If the leader fails, the vehicle in clockwise order after him becomes the new leader and the algorithm restarts from 3.
-	\item If a participant fails, it is assumed that the next vehicle in the queue becomes a participant.
-	\item If a leader fails while crossing, everyone must wait a timeout T for the tow truck to clear the intersection
-	\item If the leader undergoes a mechanical failure, it notifies the successful crossing of the intersection (in order to pass the lead to the next vehicle) and requests to be removed. Vehicles in queue behind him must wait for its removal. If the failure happens during the crossing, it notifies the successful crossing only after being removed by the tow truck (?)
+	\item If the leader fails, the vehicle in clockwise order after him becomes the new leader --- identifying also the next candidate leader --- and the algorithm restarts from 3.
+	\item If a (non-crossing) participant fails, the vehicle behind it in the queue becomes immediately a participant, justified by the assumption that in queues there's enough space to overtake the faulty vehicle.
+	\item If the leader fails while crossing, it is needed a timeout $T$ before it is removed from the intersection. Meanwhile a new election can start, and the new leader can start crossing, but it has to stop if the position in front of him is still occupied from the faulted ex-leader.
+	\item If the candidate leader fails before becoming the new leader, a new election must be started \emph{after} the current leader have completed the crossing.
 \end{itemize}
 
+\subsection{Sequence Diagrams}
+In this section are provided some sequence diagrams of relevant case situations.
+
+\subsubsection{Normal execution of Intersection Crossing Algorithm}
+The diagram in Figure~\ref{fig:seq-diag-crossing-intersection} represent a normal execution of the algorithm described above. It starts at the end of the Bully Algorithm, with the $AV_4$ that communicate it is the leader and the candidate next leader is $AV_1$. It's assumed the queues are enumerated from 1 to 4 in clockwise order.
+
+Then the leader start crossing, asking the environment if the position in front of it is free, and continue to cross until it reaches its destination.
+
+It's important to note that when the leader start the crossing, the environment says to $AV_5$ --- which is the one following $AV_4$ in the queue --- that it can move one position forward. Then $AV_5$ is in the verge of the crossroads and communicate with the other participants in order to compete for the crossing.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=\linewidth]{sequence_diagrams/crossing_intersection.pdf}
+	\caption{Sequence diagram on a normal execution of the Intersection Crossing Algorithm described above.}
+	\label{fig:seq-diag-crossing-intersection}
+\end{figure}
+
 \section{Physical architecture and deployment}
+The architecture is quite simple, a graphical representation is in Figure~\ref{fig:physical-architecture}. Each Autonomous Vehicle (AV) is a physical node. The Environment represent the world sensed by AVs, so it's not actually a physical node. AVs can ask the environment for information, and they can communicate with their neighbors.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\linewidth]{physical_architecture.pdf}
+	\caption{Physical architecture: Environment and Autonomous Vechicles (AV).}
+	\label{fig:physical-architecture}
+\end{figure}
 
 \section{Development plan}
+The proposed solution focused on a very simplified version of what a real solution could be. In particular the aim is to produce a core solution which satisfies the requirements but that also doesn't contain more than necessary assumptions, and in particular that doesn't rely on non realistic ideas that can lead future development to a blind spot.
 
+If the core simplified part will be easily developed and validated, then some advancement can be pursued, for example:
+\begin{itemize}
+	\item Add vehicles with priorities, e.g. emergency vehicles;
+	\item Dynamically modify paths inside the crossroad if some position becomes unavailable;
+	\item Let more than one vehicle per time cross the intersection, maybe with an interface to a planner in order to find the best route (exploiting epistemic planning could be an interesting option).
+\end{itemize}
 
 
 %\chapter{Implementation}
-
+%The project is developed in \href{https://www.erlang.org/}{Erlang}.
 
 %\chapter{Validation}
 
