@@ -2,6 +2,7 @@
 -behavior(gen_server).
 
 -export([start/0, start/1, start_link/0, start_link/1]).
+-export([get_participants/0]).
 -export([init/1, handle_call/3, handle_cast/2]).
 
 -record(state,
@@ -15,7 +16,7 @@
 
 %%% -------------------------- Interface Functions ------------------------- %%%
 
-%%% 'start' and 'start_link' functions can be called both without parameters, or 
+%%% Functions 'start' and 'start_link' can be called both without parameters, or 
 %%% specifying the path to the directory containing the config files.
 
 start() ->
@@ -32,12 +33,27 @@ start_link() ->
 start_link(ConfDir) ->
   gen_server:start_link({local, ?MODULE}, ?MODULE, [ConfDir], []).
 
+%%% Environment utilities:
+
+get_participants() ->
+  gen_server:call(?MODULE, participants).
+
 %%% -------------------------- Callback Functions -------------------------- %%%
 init([ConfDir]) ->
   InitEnv = #state{ graph = digraph:new() },
   {ok, build_graph(InitEnv, ConfDir)}.
 
+%%% Synchronous requests:
+
+%% get_participants
+handle_call(participants, _From, Env) -> 
+  {reply, digraph:vertices(Env#state.graph), Env};
+
+%% unexpected message
 handle_call(_Msg, _From, Env) -> {reply, ok, Env}.
+
+%%% Asynchronous requests:
+
 handle_cast(_Msg, Env) -> {noreply, Env}.
 
 %%% -------------------------- Private Functions --------------------------- %%%
