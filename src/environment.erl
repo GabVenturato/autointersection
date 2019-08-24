@@ -1,7 +1,7 @@
 -module(environment).
 -behavior(gen_server).
 
--export([start/0, start/1, start_link/0, start_link/1]).
+-export([start/0, start/1, start_link/0, start_link/1, stop/0]).
 -export([get_participants/0]).
 -export([init/1, handle_call/3, handle_cast/2]).
 
@@ -33,6 +33,9 @@ start_link() ->
 start_link(ConfDir) ->
   gen_server:start_link({local, ?MODULE}, ?MODULE, [ConfDir], []).
 
+stop() ->
+  gen_server:cast(?MODULE, stop).
+
 %%% Environment utilities:
 
 get_participants() ->
@@ -53,6 +56,8 @@ handle_call(participants, _From, Env) ->
 handle_call(_Msg, _From, Env) -> {reply, ok, Env}.
 
 %%% Asynchronous requests:
+
+handle_cast(stop, Env) -> {stop, normal, Env};
 
 handle_cast(_Msg, Env) -> {noreply, Env}.
 
@@ -107,3 +112,7 @@ add_edges(Env, [Elem|Content]) ->
     _ -> add_edges(Env, Content) % ignore nodes
   end;
 add_edges(Env, []) -> Env.
+
+%% stop the environment process
+terminate(normal, _Env) ->
+  ok.
