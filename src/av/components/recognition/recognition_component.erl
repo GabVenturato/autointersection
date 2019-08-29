@@ -7,7 +7,7 @@
 %%% Communication between various AV's components is handled only through
 %%% the event manager by means of event notifications.
 
--module(av_recognition_component).
+-module(recognition_component).
 -behavior(gen_server).
 
 % Exports the required gen_server callbacks.
@@ -17,25 +17,30 @@
 % Export startup functions.
 -export([start/1, start_link/1]).
 
--record(state, {sensor, event_maneger}).
+% This component's event handler.
+-define(EVENT_HANDLER_ID, {rec_event_handler, make_ref()}).
+
+% Include component record.
+-include("../../../../include/component.hrl").
 
 %%% -------------------------- Interface Functions ------------------------- %%%
 
-start([Sensors, EventManagerPid]) ->
-  gen_server:start({local, ?MODULE}, ?MODULE, [Sensors, EventManagerPid], []).
+start(CompDetails) ->
+  gen_server:start({local, ?MODULE}, ?MODULE, [CompDetails], []).
 
-start_link([Sensors, EventManagerPid]) ->
-  gen_server:start_link({local, ?MODULE}, ?MODULE, [Sensors, EventManagerPid], []).
+start_link(CompDetails) ->
+  gen_server:start_link({local, ?MODULE}, ?MODULE, [CompDetails], []).
 
 %%% -------------------------- Callback Functions -------------------------- %%%
 
-init([Sensors, EventManagerPid]) ->
-  {ok, #state{sensor = Sensors, event_maneger = EventManagerPid}}.
+init([CompDetails]) ->
+  HandlerId = register_event_handler(CompDetails#component.event_manager, ?EVENT_HANDLER_ID),
+  {ok, CompDetails#component{handler = HandlerId}}.
 
 handle_call({check_position_status, Position}, _From, State) ->
-  Pid = State#state.event_maneger,
-  Status = position_status(Position, State),
-  sync_notify(Pid, {position_status, Status}),
+  Pid = State#component.event_manager,
+  Status = position_status(State#component.sensor, Position),
+  notify(Pid, {coo, {position_status, Status}}),
   {reply, ok, State}.
 
 handle_cast(_, State) ->
@@ -54,9 +59,12 @@ code_change(_OldVsn, State, _Extra) ->
 %%% -------------------------- Private Functions --------------------------- %%%
 
 %% Ask the sensor to return the position status of a given position.
-position_status(Pos, State) ->
-  gen_server:call(State#state.sensor, {position_status, Pos}).
+position_status(SensorPid, Pos) ->
+  gen_server:call(SensorPid, {position_status, Pos}).
+
+register_event_handler(Pid, HandlerId) ->
+  gen_event:add_handler(Pid, HandlerId, [self()]).
 
 %% Generic synchronous event notification.
-sync_notify(Pid, Msg) ->
-  gen_event:sync_notify(Pid, Msg).
+notify(Pid, Msg) ->
+  gen_event:notify(Pid, Msg).

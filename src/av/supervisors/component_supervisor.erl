@@ -1,6 +1,6 @@
 %%% Supervisor module in charge of supervising various AV's components.
 
--module(av_component_supervisor).
+-module(component_supervisor).
 
 -behavior(supervisor).
 
@@ -21,5 +21,7 @@ start_link(Config) ->
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([]) ->
-  {ok, {{?RESTART_STRATEGY, ?MAX_RESTART, ?MAX_TIME},
-        []}}.
+  {ok, {{?RESTART_STRATEGY, ?MAX_RESTART, ?MAX_TIME}, []}};
+
+init([Restart_strategy, Max_restart, Max_time]) ->
+  {ok, {{Restart_strategy, Max_restart, Max_time}, []}}.

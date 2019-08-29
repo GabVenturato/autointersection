@@ -1,30 +1,38 @@
 -module(vehicle).
--behavior(gen_statem).
 
--export([start/0, start_link/0, callback_mode/0]).
--export([init/1]).
+-export([start/2, stop/1, start_test/2]).
 
--record( state,
-  { path
-  , position
-  }).
+-define(RECOGNITION_COMPONENT(SensorPid), 
+  #component{name = "Default Recognition Component",
+             module = recognition_component,
+             sensor = SensorPid}).
+
+-define(COMMUNICATION_COMPONENT(SensorPid),
+  #component{name = "Default Communication Component",
+             module = communication_component,
+             sensor = SensorPid}).
+
+-define(MOTION_COMPONENT(SensorPid), 
+  #component{name = "Default Motion Component",
+             module = motion_component,
+             sensor = SensorPid}).
+
+-include("../include/component.hrl").
 
 %%% -------------------------- Interface Functions ------------------------- %%%
 
-start() ->
-  gen_statem:start({local, ?MODULE}, ?MODULE, [], []).
+start(normal, _Args) ->
+  av_supervisor:start_link().
 
-start_link() ->
-  gen_statem:start_link({local, ?MODULE}, ?MODULE, [], []).
+stop(_State) ->
+  ok.
 
-
-callback_mode() ->
-  state_functions.
-
-%%% -------------------------- Callback Functions -------------------------- %%%
-
-init([]) ->
-  State = #state{},
-  {ok, waiting, State}.
-
-%%% STATE: WAITING
+start_test(Route, EnvPid) ->
+  av_supervisor:start_link({
+        Route, 
+        [
+          ?RECOGNITION_COMPONENT(EnvPid),
+          ?COMMUNICATION_COMPONENT(EnvPid),
+          ?MOTION_COMPONENT(EnvPid)
+        ]
+      }).
