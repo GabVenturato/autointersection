@@ -5,7 +5,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3]).
 -export([ enqueue_vehicle/2, dequeue_vehicle/1, is_position_free/1
         , first_in_queue/2, update_position/3, get_participants/0
-        , get_position_status/1, terminate/2
+        , get_crossing_participants/0, get_position_status/1, terminate/2
         ]).
 
 -record(state,
@@ -63,6 +63,9 @@ get_position_status(Pos) ->
 get_participants() ->
   gen_server:call(?MODULE, get_participants).
 
+get_crossing_participants() ->
+  gen_server:call(?MODULE, get_crossing_participants).
+
 %%% -------------------------- Callback Functions -------------------------- %%%
 init([ConfDir]) ->
   InitEnv = #state{ graph = digraph:new() },
@@ -116,8 +119,14 @@ handle_call(get_participants, _From, Env) ->
   Participants = get_participants_list( Env, Env#state.ins ),
   {reply, Participants, Env};
 
+%% get_crossing_participants
+handle_call(get_crossing_participants, _From, Env) ->
+  Pos = lists:subtract( digraph:vertices( Env#state.graph ), Env#state.ins ),
+  Participants = get_participants_list( Env,  Pos ),
+  {reply, Participants, Env};
+
 %% unexpected message
-handle_call(_Msg, _From, Env) -> {reply, ok, Env}.
+handle_call(Msg, _From, Env) -> {reply, {unexpected_message, Msg}, Env}.
 
 
 %%% Asynchronous requests:
