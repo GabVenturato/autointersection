@@ -36,10 +36,7 @@ callback_mode() ->
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([Env, EvMan]) ->
-  Participants = lists:map(
-    fun get_reference/1,
-    lists:delete( node(), gen_server:call(Env, get_participants) )
-    ),
+  Participants = get_participants( Env ),
   AllParticipants = Participants ++ lists:map(
     fun get_reference/1,
     gen_server:call(Env, get_crossing_participants)
@@ -52,16 +49,15 @@ init([Env, EvMan]) ->
     , ev_man = EvMan
     , id = generate_id()
     , participants = Participants
-    , leader = identify_leader( AllParticipants )
     },
-  if
-    State#state.leader == null -> 
-      {ok, ready, State, 
-        [ {{timeout, need_election}, ?TIMEOUT_ELECTION, need_election}
-        ]};
-    true ->
-      {ok, ready, State}
-  end.
+  
+  cast_vehicles( AllParticipants, {whos_leader, ?SELF_REF} ),
+  { ok
+  , ready
+  , State
+  , [ {{timeout, need_election}, ?TIMEOUT_ELECTION, need_election}
+    ]
+  }.
 
 
 %%% STATE: READY
@@ -80,7 +76,7 @@ ready({timeout, need_election}, need_election, State) ->
     ]
   };
 
-ready(cast, {new_leader, L}, State) ->
+ready(cast, {leader, L}, State) ->
   io:format( "Found leader: ~p~n", [L] ),
   { keep_state
   , State#state{ leader = L }
@@ -157,8 +153,13 @@ election(cast, {coordinator, {_, Node} = L}, State) ->
 
 %%% HANDLE COMMON
 
-handle_common({call,From}, whos_leader, State) ->
-  {keep_state, State, [{reply,From,State#state.role}]};
+handle_common(cast, {whos_leader, From}, State) ->
+  if 
+    State#state.role == leader -> 
+      gen_statem:cast( From, {leader, ?SELF_REF} )
+  end,
+  Participants = get_participants( State#state.env ),
+  {keep_state, State#state{participants = Participants}};
 
 handle_common(cast, crossed, #state{wait_counter = Wait} = State) ->
   {keep_state, State#state{wait_counter = Wait + 1}};
@@ -190,15 +191,6 @@ generate_id() ->
 %   monitor_vehicles( Vehicles );
 % monitor_vehicles([]) -> ok.
 
-%% Identify the leader asking a list of vehicles (participants) who's the leader
-identify_leader([AV|Vehicles]) ->
-  Role = gen_statem:call(AV, whos_leader),
-  case Role of
-    leader -> identify_leader( Vehicles ), AV;
-    _      -> identify_leader( Vehicles )
-  end;
-identify_leader([]) -> null.
-
 cast_vehicles([AV|Vehicles], Msg) ->
   gen_statem:cast( AV, Msg ),
   cast_vehicles( Vehicles, Msg );
@@ -224,3 +216,9 @@ gt_id( {W1, Id1}, {W2, Id2} ) ->
     W1 == W2, Id1 > Id2 -> true;
     true -> false
   end.
+
+get_participants(Env) ->
+  lists:map(
+    fun get_reference/1,
+    lists:delete( node(), gen_server:call(Env, get_participants) )
+    ).
