@@ -5,13 +5,15 @@
 -behavior(gen_event).
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, code_change/3, terminate/2]).
 
+-include("../../../../include/event.hrl").
+
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([Pid]) -> 
   {ok, Pid}.
 
-handle_event({rec, Msg = {check_position_status, _}}, Pid) ->
-  gen_server:call(Pid, Msg),
+handle_event(#event{type = request, name = position_type, content = Position}, Pid) ->
+  gen_server:call(Pid, {position_type, Position}),
   {ok, Pid};
 
 handle_event(_, State) -> {ok, State}.

@@ -2,6 +2,10 @@
            {i, "include/"},
            {outdir, "ebin"}]}.
 
+{'src/env/*', [debug_info,
+              {i, "include/"},
+              {outdir, "ebin"}]}.
+
 {'src/av/*', [debug_info,
               {i, "include/"},
               {outdir, "ebin"}]}.
@@ -27,6 +31,10 @@
                                      {outdir, "ebin"}]}.
 
 {'src/av/components/communication/*', [debug_info, 
+                                       {i, "include/"},
+                                       {outdir, "ebin"}]}.
+
+{'src/av/components/communication/actions/*', [debug_info, 
                                        {i, "include/"},
                                        {outdir, "ebin"}]}.
 

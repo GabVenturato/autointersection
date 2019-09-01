@@ -6,12 +6,14 @@
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, code_change/3,
  terminate/2]).
 
+-include("../../../include/event.hrl").
+
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([Pid]) -> {ok, Pid}.
 
-handle_event({coo, {position_status, Status}}, Pid) ->
-  gen_server:call(Pid, {position_status, Status}),
+handle_event(#event{type = notification, name = position_type, content = Type}, Pid) ->
+  gen_server:call(Pid, {position_type, Type}),
   {ok, Pid};
 
 handle_event(_, State) -> {ok, State}.

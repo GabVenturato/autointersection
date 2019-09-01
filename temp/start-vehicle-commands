@@ -1,2 +1,0 @@
-single_vehicle_test:start_test().
-application:start(vehicle).

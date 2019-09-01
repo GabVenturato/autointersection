@@ -1,7 +1,7 @@
 %%% Supervisor in charge of supervising new processes started 
 %%% by a component.
 
--module(auxiliary_supervisor).
+-module(action_supervisor).
 
 -behavior(supervisor).
 
@@ -17,7 +17,7 @@
 %%% -------------------------- Interface Functions ------------------------- %%%
 
 start_link(Config) ->
-  supervisor:start_link({local,?MODULE}, ?MODULE, Config).
+  supervisor:start_link(?MODULE, Config).
 
 %%% -------------------------- Callback Functions -------------------------- %%%
 

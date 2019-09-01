@@ -1,7 +1,7 @@
 %%% Supervisor module in charge of supervising the main AV's components:
 %%% AV server, AV component supervisor and AV event manager.
 
--module(av_supervisor).
+-module(env_supervisor).
 
 -behavior(supervisor).
 
@@ -26,14 +26,14 @@ start_link(Config) ->
 
 init([]) ->
     {ok, {{?RESTART_STRATEGY, ?MAX_RESTART, ?MAX_TIME},
-          [{av_coord,
-            {coordinator, start_link, [self()]},
-            permanent, 1000, worker, [coordinator]}
+          [{env,
+            {environment, start_link, []},
+            permanent, 5000, worker, [environment]}
           ]}};
 
-init({Route, Components}) ->
+init(Config) ->
   {ok, {{?RESTART_STRATEGY, ?MAX_RESTART, ?MAX_TIME},
-        [{av_coord,
-          {coordinator, start_link, [self(), Route, Components]},
-          permanent, 1000, worker, [coordinator]}
+        [{env,
+          {environment, start_link, [Config]},
+          permanent, 5000, worker, [environment]}
         ]}}.

@@ -21,8 +21,8 @@
 % Include component record.
 -include("../../../../include/component.hrl").
 
-% Sleep time used for busy waiting.
--define(TIME_TO_WAIT, 1200).
+-include("../../../../include/event.hrl").
+
 
 %%% -------------------------- Interface Functions ------------------------- %%%
 
@@ -35,8 +35,8 @@ start_link(CompDetails) ->
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([CompDetails]) ->
-  HandlerId = register_event_handler(CompDetails#component.event_manager, ?EVENT_HANDLER_ID),
-  {ok, CompDetails#component{handler = HandlerId}}.
+  register_event_handler(CompDetails#component.event_manager, ?EVENT_HANDLER_ID),
+  {ok, CompDetails#component{handler = ?EVENT_HANDLER_ID}}.
 
 handle_call(_, _From, State) ->
   {reply, ok, State}.
@@ -45,7 +45,7 @@ handle_cast({move, Position}, State) ->
   begin_moving(Position, State),
   {noreply, State};
 
-handle_cast({object_at, {Position, Result}}, State) ->
+handle_cast({vehicle_at, {Position, Result}}, State) ->
   verify_position(Position, Result, State),
   {noreply, State};
 
@@ -56,19 +56,24 @@ handle_cast({position_update, {Update, Ref}}, State) ->
 handle_cast(_, State) -> {noreply, State}.
 
 %%  The monitored vehicle went down, notify others about it.
-handle_info({'DOWN', MonitorReference, process, Pid, _Reason}, State) ->
+handle_info({'DOWN', MonitorReference, process, Pid, Reason}, State) ->
   erlang:demonitor(MonitorReference),
-  EvManPid = State#component.event_manager,
-  notify(EvManPid, {com, {vehicle_down, Pid}}),
-  io:format("Vehicle in front is down! ~n"),
+  case Reason of
+    normal -> io:format("Vehicle in front is down for normal reasons! ~n");
+    _ ->
+      io:format("Vehicle in front has sw crashed! ~n"),
+      EvManPid = State#component.event_manager,
+      notify(EvManPid, #event{type = notification, name = vehicle_down, content = Pid})
+  end,
   {noreply, State};
   
 handle_info(Msg, State) ->
     io:format("Unknown msg: ~p~n", [Msg]),
     {noreply, State}.
 
-terminate(_Reason, _State) ->
-  {ok, _State}.
+terminate(_Reason, State) ->
+  remove_event_handler(State#component.event_manager, State#component.handler),
+  {ok, State}.
 
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
@@ -82,15 +87,15 @@ begin_moving(Pos, State) ->
     true ->
       move(Pid);
     false ->
-      io:format("Waiting for next position...~n"),
-      notify(Pid, {com, {who_is_at, Pos}})
+      io:format("Waiting for next position: ~p ...~n", [Pos]),
+      who_is_at(Pid, Pos)
   end.
 
 %% Check what is the object in Position.
 verify_position(Position, Object, State) ->
   case Object of
     {vehicle, Pid} -> 
-      io:format("A vehicle is in front...~n"),
+      io:format("A vehicle is in front: ~p ...~n", [Pid]),
       Ref = erlang:monitor(process, Pid),
       receive_position_update(Position, Ref, State);
     _ ->  
@@ -101,7 +106,8 @@ verify_position(Position, Object, State) ->
 %% If we have to wait, receive updates from the sensor.
 receive_position_update(Position, Ref, State) ->
   EvManPid = State#component.event_manager,
-  gen_server:cast(EvManPid, {notify_when_free, {self(), Position, Ref}}).
+  SensorPid = State#component.sensor,
+  gen_server:cast(SensorPid, {notify_when_free, {EvManPid, Position, Ref}}).
 
 %% Position update received, now handle the cases.
 position_update(Update, Ref, State) ->
@@ -116,15 +122,21 @@ position_update(Update, Ref, State) ->
 
 %% Move to position.
 move(Pid) ->
-  notify(Pid, {coo, {moved}}).
+  notify(Pid, #event{type = notification, name = moved}).
+
+who_is_at(Pid, Pos) ->
+  notify(Pid, #event{type = request, name = who_is_at, content = Pos}).
 
 %% Check with the sensor if the position is free.
 is_position_free(SensorPid, Position) ->
   gen_server:call(SensorPid, {is_position_free, Position}).
 
 register_event_handler(Pid, HandlerId) ->
-    gen_event:add_handler(Pid, HandlerId, [self()]).
+  gen_event:add_handler(Pid, HandlerId, [self()]).
 
-%% Generic synchronous event notification.
+remove_event_handler(Pid, HandlerId) ->
+  gen_event:delete_handler(Pid, HandlerId, []).
+
+%% Generic async event notification.
 notify(Pid, Msg) ->
   gen_event:notify(Pid, Msg).

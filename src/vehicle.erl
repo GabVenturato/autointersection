@@ -1,6 +1,6 @@
 -module(vehicle).
 
--export([start/2, stop/1, start_test/2]).
+-export([start/2, stop/1, start_vehicle/2]).
 
 -define(RECOGNITION_COMPONENT(SensorPid), 
   #component{name = "Default Recognition Component",
@@ -22,13 +22,13 @@
 %%% -------------------------- Interface Functions ------------------------- %%%
 
 start(normal, _Args) ->
-  av_supervisor:start_link().
+    vehicle_supervisor:start_link().
 
 stop(_State) ->
   ok.
 
-start_test(Route, EnvPid) ->
-  av_supervisor:start_link({
+start_vehicle(Route, EnvPid) ->
+  vehicle_supervisor:start_link({
         Route, 
         [
           ?RECOGNITION_COMPONENT(EnvPid),

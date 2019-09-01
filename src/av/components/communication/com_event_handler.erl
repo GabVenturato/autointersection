@@ -5,21 +5,23 @@
 -behavior(gen_event).
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, code_change/3, terminate/2]).
 
+-include("../../../../include/event.hrl").
+
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([Pid]) -> 
   {ok, Pid}.
 
-handle_event({com, Msg = {handle_status, _}}, Pid) ->
-  gen_server:cast(Pid, Msg),
+handle_event(#event{type = request, name = handle_position_type, content = Type}, Pid) ->
+  gen_server:cast(Pid, {handle_position_type, Type}),
   {ok, Pid};
 
-handle_event({com, Msg = {vehicle_down, _}}, Pid) ->
-  gen_server:cast(Pid, Msg),
+handle_event(#event{type = notification, name = vehicle_down, content = VehiclePid}, Pid) ->
+  gen_server:cast(Pid, {vehicle_down, VehiclePid}),
   {ok, Pid};
 
-handle_event({com, Msg = {who_is_at, _}}, Pid) -> 
-  gen_server:cast(Pid, Msg),
+handle_event(#event{type = request, name = who_is_at, content = Pos}, Pid) -> 
+  gen_server:cast(Pid, {who_is_at, Pos}),
   {ok, Pid};
 
 handle_event(_, State) -> {ok, State}.
