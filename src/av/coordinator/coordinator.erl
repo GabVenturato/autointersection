@@ -131,6 +131,7 @@ handle_cast({moved}, State) ->
 handle_cast({breakdown}, State) ->
   Sup = State#internal.supervisor,
   EvMan = State#internal.event_manager,
+  notify(EvMan, #event{type = notification, name = vehicle_breakdown}),
   supervisor:terminate_child(Sup, component_sup),
   timer:sleep(?TOW_TRUCK_TIME),
   update_position(EvMan, Sup, current_position(State#internal.route), []),
