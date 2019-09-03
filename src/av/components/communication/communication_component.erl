@@ -25,7 +25,7 @@
 
 -include("../../../../include/event.hrl").
 
--define(INTERSECTION_SOLVING_MODULE, module_name).
+-define(INTERSECTION_SOLVING_MODULE, intersection_coordination).
 
 %% Action supervisor specification.
 -define(SUP_SPEC(Args),
@@ -39,7 +39,7 @@
 %% Intersection crossing process specification.
 -define(INTER_CROSS_SPEC(Args),
         {?INTERSECTION_SOLVING_MODULE,
-         {?INTERSECTION_SOLVING_MODULE, start_link, [Args]},
+         {?INTERSECTION_SOLVING_MODULE, start_link, Args},
          transient,
          5000,
          worker,
@@ -100,18 +100,20 @@ code_change(_OldVsn, State, _Extra) ->
 %% Start the process that is in charge of solving the intersection.
 start_intersection_coordination(State) ->
   %% Spawn new process to begin coordination.
-  %%EvManPid = State#component.event_manager,
-  %%SensorPid = State#component.sensor,
-  %%{ok, SupPid} = supervisor:start_child(State#component.supervisor, ?SUP_SPEC([])),
-  %%supervisor:start_child(SupPid, ?INTER_CROSS_SPEC([SensorPid, EvManPid])).
+  io:format("Solving intersection... ~n"),
+  SensorPid = State#component.sensor,
+  EvManPid = State#component.event_manager,
+  {ok, SupPid} = supervisor:start_child(State#component.supervisor, ?SUP_SPEC([])),
+  Ret = supervisor:start_child(SupPid, ?INTER_CROSS_SPEC([SensorPid, EvManPid])),
+  io:format( "SupPid: ~p~nSupervisor: ~p~nStart child: ~p~n", [SupPid,State#component.supervisor,Ret]).
 
   %% Temporary for testing purposes:
-  io:format("Solving intersection... ~n"),
-  Number = rand:uniform(1800),
-  timer:sleep(7000-Number),
-  EvManPid = State#component.event_manager,
-  notify(EvManPid, 
-         #event{type = notification, name = position_type, content = normal}).
+  % io:format("Solving intersection... ~n"),
+  % Number = rand:uniform(1800),
+  % timer:sleep(7000-Number),
+  % EvManPid = State#component.event_manager,
+  % notify(EvManPid, 
+  %        #event{type = notification, name = position_type, content = normal}).
 
 get_vehicle_at(Pid, Position) ->
   gen_server:call(Pid, {vehicle_at, Position}).

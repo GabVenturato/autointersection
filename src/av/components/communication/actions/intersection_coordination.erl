@@ -1,10 +1,12 @@
--module(av_intersection_coordination).
+-module(intersection_coordination).
 -behavior(gen_statem).
+
+-include("../../../../../include/event.hrl").
 
 -export([start/2, start_link/2, callback_mode/0]).
 -export([print_state/0]).
--export([init/1, handle_common/3]).
--export([ready/3, election/3]).
+-export([init/1, terminate/3, handle_common/3]).
+-export([ready/3, election/3, crossing/3]).
 
 -record( cross,
   { env               % environment reference (i.e. Pid / info to contact it)
@@ -21,7 +23,9 @@
 -define( TIMEOUT_ANSWER, ?TIMEOUT_ELECTION * 2 ).
 -define( SELF_REF, {?MODULE, node()} ).
 
--define(HANDLE_COMMON, ?FUNCTION_NAME(T, C, D) -> handle_common(T, C, D)).
+-define( EVENT_HANDLER_ID, {ic_event_handler, make_ref()} ).
+
+-define( HANDLE_COMMON, ?FUNCTION_NAME(T, C, D) -> handle_common(T, C, D) ).
 
 %%% -------------------------- Interface Functions ------------------------- %%%
 
@@ -42,6 +46,10 @@ print_state() ->
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([Env, EvMan]) ->
+  io:format("INIT CALLED~n"),
+  process_flag(trap_exit, true),
+  gen_event:add_handler(EvMan, ?EVENT_HANDLER_ID, [self()]),
+
   Data = #cross
     { env = Env
     , ev_man = EvMan
@@ -64,6 +72,10 @@ init([Env, EvMan]) ->
   , [ {{timeout, need_election}, ?TIMEOUT_ELECTION, need_election}
     ]
   }.
+
+terminate(Reason, _State, Data) ->
+  gen_event:delete_handler( Data#cross.ev_man, ?EVENT_HANDLER_ID, [] ),
+  {ok, Reason}.
 
 
 %%% STATE: READY
@@ -113,8 +125,12 @@ ready(cast, {election, _From, _Id}, Data) ->
 election({timeout, election_expired}, election_expired, Data) ->
   io:format( "No one answered my election message. I'm the leader.~n" ),
   cast_vehicles( participants( Data ), {coordinator, ?SELF_REF} ),
+  gen_event:notify(
+    Data#cross.ev_man, 
+    #event{type = notification, name = position_type, content = normal}
+  ),
   { next_state
-  , ready
+  , crossing
   , Data#cross
       { role = leader
       , candidate = clockwise_next( Data#cross.participants, ?SELF_REF )
@@ -183,6 +199,25 @@ election(cast, {coordinator, {_, Node} = L}, Data) ->
 
 ?HANDLE_COMMON.
 
+%%% STATE: CROSSING
+crossing(cast, crossing_complete, Data) ->
+  io:format( 
+    "Crossing complete! Pass the lead to ~p~n", 
+    [Data#cross.candidate] 
+  ),
+  {stop, normal};
+
+crossing(cast, {whos_leader, From}, Data) ->
+  gen_statem:cast( From, {leader, ?SELF_REF} ),
+  Participants = get_participants( Data#cross.env ),
+  {keep_state, Data#cross{participants = Participants}};
+
+crossing(cast, Msg, _Data) ->
+  io:format( "Ignoring message: ~p~n", [Msg] ),
+  keep_state.
+
+%%% STATE: CRASH
+
 
 %%% HANDLE COMMON
 
@@ -223,6 +258,8 @@ handle_common(info, {nodedown, Node}, _Data) ->
 handle_common(cast, Msg, _Data) ->
   io:format( "Unexpected message: ~p~n", [Msg] ),
   keep_state_and_data.
+
+
 
 %%% -------------------------- Private Functions --------------------------- %%%
 

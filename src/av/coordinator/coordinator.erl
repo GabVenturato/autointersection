@@ -187,6 +187,7 @@ advance(Pid, Route) ->
   Next = next_position(Route),
   case Next of
     {ok, Position} -> 
+      timer:sleep(2000), % TODO: remove this line in production
       notify(Pid, #event{type = request, name = move, content = Position});
     _ -> io:format("Vehicle has arrived at destination. ~n")
   end.
