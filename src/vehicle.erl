@@ -1,21 +1,22 @@
 -module(vehicle).
+-behavior(application).
 
--export([start/2, stop/1, start_vehicle/2]).
+-export([start/2, stop/1, startup/0, initialize/2]).
 
--define(RECOGNITION_COMPONENT(SensorPid), 
+-define(RECOGNITION_COMPONENT(ProbePid), 
   #component{name = "Default Recognition Component",
              module = recognition_component,
-             sensor = SensorPid}).
+             probe = ProbePid}).
 
--define(COMMUNICATION_COMPONENT(SensorPid),
+-define(COMMUNICATION_COMPONENT(ProbePid),
   #component{name = "Default Communication Component",
              module = communication_component,
-             sensor = SensorPid}).
+             probe = ProbePid}).
 
--define(MOTION_COMPONENT(SensorPid), 
+-define(MOTION_COMPONENT(ProbePid), 
   #component{name = "Default Motion Component",
              module = motion_component,
-             sensor = SensorPid}).
+             probe = ProbePid}).
 
 -include("../include/component.hrl").
 
@@ -27,12 +28,15 @@ start(normal, _Args) ->
 stop(_State) ->
   ok.
 
-start_vehicle(Route, EnvPid) ->
-  vehicle_supervisor:start_link({
+startup() ->
+  coordinator:startup().
+
+initialize(Route, EnvPid) ->
+  coordinator:initialize(
         Route, 
         [
           ?RECOGNITION_COMPONENT(EnvPid),
           ?COMMUNICATION_COMPONENT(EnvPid),
           ?MOTION_COMPONENT(EnvPid)
         ]
-      }).
+      ).

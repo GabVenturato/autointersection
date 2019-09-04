@@ -27,13 +27,13 @@ start_link(Config) ->
 init([]) ->
     {ok, {{?RESTART_STRATEGY, ?MAX_RESTART, ?MAX_TIME},
           [{env,
-            {environment, start_link, []},
-            permanent, 5000, worker, [environment]}
+            {env, start_link, []},
+            permanent, 5000, worker, [env]}
           ]}};
 
 init(Config) ->
   {ok, {{?RESTART_STRATEGY, ?MAX_RESTART, ?MAX_TIME},
         [{env,
-          {environment, start_link, [Config]},
-          permanent, 5000, worker, [environment]}
+          {env, start_link, [Config]},
+          permanent, 5000, worker, [env]}
         ]}}.

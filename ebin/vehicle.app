@@ -10,7 +10,7 @@
                communication_event_handler, motion_component,
                recognition_component, communication_component,
                mot_event_handler, com_event_handler, rec_event_handler,
-               av_intersection_coordination]},
+               intersection_coordination]},
     {registered, []},
     {mod, {vehicle, []}}
   ]}.
