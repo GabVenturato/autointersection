@@ -187,7 +187,7 @@ startup_vehicle(Pos, State) ->
       EvMan = State#internal.event_manager,
       check_positon_type(EvMan, Pos),
       update_position(State#internal.event_manager,
-                      State#internal.supervisor,
+                      node(),
                       [],
                       Pos), 
       true
@@ -235,11 +235,11 @@ next_position([_]) -> {warning, route_completed}.
 current_position([]) -> [];
 current_position(Route) -> hd(Route).
 
-update_position(Pid, VehiclePid, OldPos, NewPos) ->
+update_position(Pid, VehicleNode, OldPos, NewPos) ->
   notify(Pid, 
         #event{type = notification,
               name = position_changed,
-              content = {VehiclePid, OldPos, NewPos}
+              content = {VehicleNode, OldPos, NewPos}
         }).
 
 %% Generic async event notification.

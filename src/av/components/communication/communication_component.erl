@@ -104,8 +104,7 @@ start_intersection_coordination(State) ->
   SensorPid = State#component.probe,
   EvManPid = State#component.event_manager,
   {ok, SupPid} = supervisor:start_child(State#component.supervisor, ?SUP_SPEC([])),
-  Ret = supervisor:start_child(SupPid, ?INTER_CROSS_SPEC([SensorPid, EvManPid])),
-  io:format( "SupPid: ~p~nSupervisor: ~p~nStart child: ~p~n", [SupPid,State#component.supervisor,Ret]).
+  supervisor:start_child(SupPid, ?INTER_CROSS_SPEC([SensorPid, EvManPid])).
 
   %% Temporary for testing purposes:
   % io:format("Solving intersection... ~n"),

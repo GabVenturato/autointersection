@@ -236,8 +236,12 @@ add_edges(Env, []) -> Env.
 
 get_participants_list( Env, [Pos|Positions] ) ->
   case digraph:vertex( Env#state.graph, Pos ) of
-    {Pos, [Vehicle|_]} -> [ Vehicle | get_participants_list( Env, Positions ) ];
-    _                  -> get_participants_list( Env, Positions )
+    {Pos, #vertex_info{vehicle = undefined}} ->
+      get_participants_list( Env, Positions );
+    {Pos, #vertex_info{vehicle = Vehicle}} ->
+      [ Vehicle | get_participants_list( Env, Positions ) ];
+    _ ->
+      get_participants_list( Env, Positions )
   end;
 get_participants_list( _, [] ) -> [].
 

@@ -15,8 +15,8 @@
 init([_]) -> {ok, []}.
 
 handle_event(#event{type = notification, name = position_changed, content = {Pid, OldPos, NewPos}}, State) ->
-  gen_server:call({environment, env@lenora}, {release_position, OldPos}),
-  gen_server:call({environment, env@lenora}, {occupy_position, Pid, NewPos}),
+  gen_server:call({env, env@lenora}, {release_position, OldPos}),
+  gen_server:call({env, env@lenora}, {occupy_position, Pid, NewPos}),
   {ok, State};
 
 handle_event(_, State) -> {ok, State}.

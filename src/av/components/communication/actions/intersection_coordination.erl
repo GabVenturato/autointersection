@@ -46,7 +46,6 @@ print_state() ->
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([Env, EvMan]) ->
-  io:format("INIT CALLED~n"),
   process_flag(trap_exit, true),
   gen_event:add_handler(EvMan, ?EVENT_HANDLER_ID, [self()]),
 
@@ -63,13 +62,13 @@ init([Env, EvMan]) ->
     gen_server:call(Env, get_crossing_participants)
   ),
   io:format( "Participants: ~p~n", [Participants] ),
-  io:format( "AllParticipants: ~p~n", [AllParticipants] ),
+  io:format( "AllParticipants: ~p and ~p~n", [Data#cross.participants, AllParticipants] ),
   
   cast_vehicles( AllParticipants, {whos_leader, ?SELF_REF} ),
   { ok
   , ready
   , Data
-  , [ {{timeout, need_election}, ?TIMEOUT_ELECTION, need_election}
+  , [ {{timeout, need_election}, ?TIMEOUT_ANSWER, need_election}
     ]
   }.
 
@@ -112,6 +111,24 @@ ready(cast, {election, _From, _Id}, Data) ->
   , Data
   , [ postpone
     , {{timeout, need_election}, infinity, undefined}
+    ]
+  };
+
+%% Received a promotion message. I am going to be the new leader.
+ready(cast, promotion, Data) ->
+  io:format( "Promotion received. I'm the new leader.~n" ),
+  cast_vehicles( participants( Data ), {leader, ?SELF_REF} ),
+  gen_event:notify(
+    Data#cross.ev_man, 
+    #event{type = notification, name = position_type, content = normal}
+  ),
+  { next_state
+  , crossing
+  , Data#cross
+      { role = leader
+      , candidate = clockwise_next( Data#cross.participants, ?SELF_REF )
+      }
+  , [ {{timeout, need_election}, infinity, undefined}
     ]
   };
 
@@ -205,6 +222,8 @@ crossing(cast, crossing_complete, Data) ->
     "Crossing complete! Pass the lead to ~p~n", 
     [Data#cross.candidate] 
   ),
+  cast_vehicles( participants( Data ), crossed ),
+  gen_statem:cast( Data#cross.candidate, promotion ),
   {stop, normal};
 
 crossing(cast, {whos_leader, From}, Data) ->
@@ -233,7 +252,11 @@ handle_common(cast, {whos_leader, From}, Data) ->
 
 %% The leader completed the crossing
 handle_common(cast, crossed, #cross{wait_counter = Wait} = Data) ->
-  {keep_state, Data#cross{wait_counter = Wait + 1}};
+  { keep_state
+  , Data#cross{wait_counter = Wait + 1}
+  , [ {{timeout, need_election}, ?TIMEOUT_ANSWER, need_election}
+    ]
+  };
 
 %% Print current data
 handle_common(cast, print_state, Data) ->
@@ -253,6 +276,10 @@ handle_common(cast, print_state, Data) ->
 % Only the leader is  monitored, so if received nodedown is because it failed
 handle_common(info, {nodedown, Node}, _Data) ->
   io:format( "Leader down: ~p~n", [Node] ),
+  keep_state_and_data;
+
+handle_common(cast, mechanical_failure, _Data) ->
+  io:format( "Mechanical failure detected~n" ),
   keep_state_and_data;
 
 handle_common(cast, Msg, _Data) ->

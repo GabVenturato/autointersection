@@ -26,9 +26,9 @@ application:start(vehicle).
 vehicle:initialize(Route, {env, 'env@lenora'}).
 vehicle:startup().
 
-Route = rpc:call('env@lenora', env, get_route, ["R_1", "R_30"]).
-application:start(vehicle).
-vehicle:initialize(Route, {env, 'env@lenora'}).
+Route = rpc:call('env@lenora', env, get_route, ["R_1", "R_30"]),
+application:start(vehicle),
+vehicle:initialize(Route, {env, 'env@lenora'}),
 vehicle:startup().
 
 4) Alternative: to simulate mechanical failure run after 3) in node v3:
