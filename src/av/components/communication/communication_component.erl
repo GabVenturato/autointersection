@@ -101,7 +101,7 @@ code_change(_OldVsn, State, _Extra) ->
 start_intersection_coordination(State) ->
   %% Spawn new process to begin coordination.
   io:format("Solving intersection... ~n"),
-  SensorPid = State#component.sensor,
+  SensorPid = State#component.probe,
   EvManPid = State#component.event_manager,
   {ok, SupPid} = supervisor:start_child(State#component.supervisor, ?SUP_SPEC([])),
   Ret = supervisor:start_child(SupPid, ?INTER_CROSS_SPEC([SensorPid, EvManPid])),
