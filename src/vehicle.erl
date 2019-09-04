@@ -1,7 +1,7 @@
 -module(vehicle).
 -behavior(application).
 
--export([start/2, stop/1, startup/0, initialize/2]).
+-export([start/2, stop/1, startup/0, initialize/2, set_testing_environment/1]).
 
 -define(RECOGNITION_COMPONENT(ProbePid), 
   #component{name = "Default Recognition Component",
@@ -40,3 +40,6 @@ initialize(Route, EnvPid) ->
           ?MOTION_COMPONENT(EnvPid)
         ]
       ).
+
+set_testing_environment(EnvLocation) ->
+  coordinator:set_testing_environment(EnvLocation).

@@ -15,20 +15,22 @@ env:occupy_position(spawn(fun() -> timer:sleep(60000), env:release_position("R_5
 3) QUICKLY execute in v3, v2, v1 respecting the order (timer in previous step set to 60s):
 	Make sure to modify the tuple {Name, Node} before !!
 
-
 Route = rpc:call('env@home-pc', env, get_route, ["R_4", "R_30"]).
 application:start(vehicle).
 vehicle:initialize(Route, {env, 'env@home-pc'}).
+vehicle:set_testing_environment({env, 'env@home-pc'}).
 vehicle:startup().
 
 Route = rpc:call('env@home-pc', env, get_route, ["R_2", "R_30"]).
 application:start(vehicle).
 vehicle:initialize(Route, {env, 'env@home-pc'}).
+vehicle:set_testing_environment({env, 'env@home-pc'}).
 vehicle:startup().
 
 Route = rpc:call('env@home-pc', env, get_route, ["R_1", "R_30"]).
 application:start(vehicle).
 vehicle:initialize(Route, {env, 'env@home-pc'}).
+vehicle:set_testing_environment({env, 'env@home-pc'}).
 vehicle:startup().
 
 4) Alternative: to simulate mechanical failure run after 3) in node v3:
