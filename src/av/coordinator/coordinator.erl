@@ -2,7 +2,7 @@
 -behavior(gen_server).
 
 % Interface functions.
--export([startup/0, initialize/2]).
+-export([startup/0, initialize/2, set_testing_environment/1]).
 -export([start/1, start_link/1, start/3, start_link/3]).
 
 % Exports the required gen_server callbacks.
@@ -64,6 +64,9 @@ initialize(Route, Components) ->
   ?MODULE ! {update_route, Route},
   ?MODULE ! {initialize_vehicle, Components}.
 
+set_testing_environment(EnvLocation) ->
+  ?MODULE ! {start_environment_listener, EnvLocation}.
+
 start(SupPid) ->
   gen_server:start({local, ?MODULE}, ?MODULE, [SupPid], []).
 
@@ -99,7 +102,8 @@ handle_info({initialize_vehicle, Components}, State) ->
   Sup = State#internal.supervisor,
   {ok, EvMan} = supervisor:start_child(Sup, ?EVENT_MAN_SPEC([])),
   {ok, SupPid} = supervisor:start_child(Sup, ?COMP_SUP_SPEC([])),
-  EventHandlers = register_event_handler(EvMan, ?EVENT_HANDLER_IDS ++ [?ENV_HANDLER]),
+  EventHandlers = State#internal.event_handlers ++ 
+                  register_event_handler(EvMan, ?EVENT_HANDLER_IDS),
   start_components(SupPid, Components, EvMan),
   {noreply, State#internal{event_manager = EvMan,
                            event_handlers = EventHandlers}};
@@ -107,6 +111,10 @@ handle_info({initialize_vehicle, Components}, State) ->
 handle_info({update_route, Route}, State) ->
   {noreply, State#internal{route = Route}};
 
+handle_info({start_environment_listener, NodeName}, State) ->
+  EvManPid = State#internal.event_manager,
+  gen_event:add_handler(EvManPid, ?ENV_HANDLER, [NodeName]),
+  {noreply, State};
 
 handle_info(Msg, State) ->
   io:format("Unknown msg: ~p~n", [Msg]),
