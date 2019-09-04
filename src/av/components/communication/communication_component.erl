@@ -70,14 +70,14 @@ handle_cast({handle_position_type, Type}, State) ->
   {noreply, State};
 
 handle_cast({who_is_at, Position}, State) ->
-  Pid = State#component.sensor,
+  Pid = State#component.probe,
   Result = get_vehicle_at(Pid, Position),
   notify(State#component.event_manager, 
          #event{type = notification, name = vehicle_at, content = {Position, Result}}),
   {noreply, State};
 
 handle_cast({vehicle_down, VehiclePid}, State) ->
-  Pid = State#component.sensor,
+  Pid = State#component.probe,
   signal_vehicle_down(Pid, VehiclePid),
   {noreply, State};
 
@@ -101,9 +101,9 @@ code_change(_OldVsn, State, _Extra) ->
 start_intersection_coordination(State) ->
   %% Spawn new process to begin coordination.
   %%EvManPid = State#component.event_manager,
-  %%SensorPid = State#component.sensor,
+  %%ProbePid = State#component.probe,
   %%{ok, SupPid} = supervisor:start_child(State#component.supervisor, ?SUP_SPEC([])),
-  %%supervisor:start_child(SupPid, ?INTER_CROSS_SPEC([SensorPid, EvManPid])).
+  %%supervisor:start_child(SupPid, ?INTER_CROSS_SPEC([ProbePid, EvManPid])).
 
   %% Temporary for testing purposes:
   io:format("Solving intersection... ~n"),

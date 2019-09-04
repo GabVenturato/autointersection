@@ -83,7 +83,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% Main function to move the vehicle.
 begin_moving(Pos, State) ->
   Pid = State#component.event_manager,
-  case is_position_free(State#component.sensor, Pos) of 
+  case is_position_free(State#component.probe, Pos) of 
     true ->
       move(Pid);
     false ->
@@ -106,8 +106,8 @@ verify_position(Position, Object, State) ->
 %% If we have to wait, receive updates from the sensor.
 receive_position_update(Position, Ref, State) ->
   EvManPid = State#component.event_manager,
-  SensorPid = State#component.sensor,
-  gen_server:cast(SensorPid, {notify_when_free, {EvManPid, Position, Ref}}).
+  ProbePid = State#component.probe,
+  gen_server:cast(ProbePid, {notify_when_free, {EvManPid, Position, Ref}}).
 
 %% Position update received, now handle the cases.
 position_update(Update, Ref, State) ->
@@ -128,8 +128,8 @@ who_is_at(Pid, Pos) ->
   notify(Pid, #event{type = request, name = who_is_at, content = Pos}).
 
 %% Check with the sensor if the position is free.
-is_position_free(SensorPid, Position) ->
-  gen_server:call(SensorPid, {is_position_free, Position}).
+is_position_free(ProbePid, Position) ->
+  gen_server:call(ProbePid, {is_position_free, Position}).
 
 register_event_handler(Pid, HandlerId) ->
   gen_event:add_handler(Pid, HandlerId, [self()]).

@@ -6,6 +6,8 @@
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, code_change/3,
  terminate/2]).
 
+-define(HOSTNAME, element(2,inet:gethostname())).
+
 -include("../../include/event.hrl").
 
 %%% -------------------------- Callback Functions -------------------------- %%%
@@ -13,8 +15,8 @@
 init([_]) -> {ok, []}.
 
 handle_event(#event{type = notification, name = position_changed, content = {Pid, OldPos, NewPos}}, State) ->
-  gen_server:call({environment, env@antonio}, {release_position, OldPos}),
-  gen_server:call({environment, env@antonio}, {occupy_position, Pid, NewPos}),
+  gen_server:call({env, 'env@home-pc'}, {release_position, OldPos}),
+  gen_server:call({env, 'env@home-pc'}, {occupy_position, Pid, NewPos}),
   {ok, State};
 
 handle_event(_, State) -> {ok, State}.
