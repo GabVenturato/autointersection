@@ -10,7 +10,8 @@ erl -sname env -pa ebin/
 2) Execute in env.
 
 application:start(environment).
-env:occupy_position(spawn(fun() -> timer:sleep(60000), env:release_position("R_5") end), "R_5").
+env:update_position(node(), [], "R_5").
+spawn(fun() -> timer:sleep(60000), env:update_position(self(), "R_5", []) end).
 
 3) QUICKLY execute in v3, v2, v1 respecting the order (timer in previous step set to 60s):
 	Make sure to modify the tuple {Name, Node} before !!

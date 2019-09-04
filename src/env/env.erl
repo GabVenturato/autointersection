@@ -3,9 +3,9 @@
 
 -export([start/0, start/1, start_link/0, start_link/1, stop/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3]).
--export([ is_position_free/1, occupy_position/2, release_position/1
-        , get_participants/0, get_crossing_participants/0
-        , get_position_type/1, get_route/2, terminate/2
+-export([ is_position_free/1, update_position/3, get_participants/0
+        , get_crossing_participants/0, get_position_type/1, get_route/2
+        , terminate/2
         ]).
 
 -record(state,
@@ -56,11 +56,8 @@ stop() ->
 is_position_free(Pos) ->
   gen_server:call(?MODULE, {is_position_free, Pos}).
 
-occupy_position(Vehicle, Pos) ->
-  gen_server:call(?MODULE, {occupy_position, Vehicle, Pos}).
-
-release_position(Pos) ->
-  gen_server:call(?MODULE, {release_position, Pos}).
+update_position(Vehicle, OldPos, NewEnv) ->
+  gen_server:call(?MODULE, {update_position, {Vehicle, OldPos, NewEnv}}).
 
 get_position_type(Pos) ->
   gen_server:call(?MODULE, {position_type, Pos}).
@@ -89,15 +86,10 @@ init([ConfDir]) ->
 handle_call({is_position_free, Pos}, _From, Env) ->
   {reply, is_position_free(Pos, Env), Env};
 
-%% TODO: should be performed more checks? like if the two position are connected
-%%   by an edge.
-handle_call({occupy_position, Vehicle, Pos}, _From, Env) ->
-  NewEnv = add(Vehicle, Pos, Env),
-  {reply, ok, NewEnv};
-
-handle_call({release_position, Pos}, _From, Env) ->
-  NewEnv = release(Pos, Env),
-  {reply, ok, NewEnv};
+handle_call({update_position, {Vehicle, OldPos, NewPos}}, _From, Env) ->
+  NewEnv = release(OldPos, Env),
+  NewestEnv = add(Vehicle, NewPos, NewEnv),
+  {reply, ok, NewestEnv};
 
 handle_call({vehicle_at, Pos}, _From, Env) ->
   Result = case digraph:vertex(Env#state.graph, Pos) of
@@ -128,7 +120,6 @@ handle_call(get_crossing_participants, _From, Env) ->
   Participants = get_participants_list( Env,  Pos ),
   {reply, Participants, Env};
 
-
 %% unexpected message
 handle_call(Msg, _From, Env) -> {reply, {unexpected_message, Msg}, Env}.
 
@@ -145,8 +136,8 @@ handle_cast({notify_when_free, {WaitingPid, Position, Ref}}, Env) ->
   end,
   {noreply, Env#state{waiting_list = NewWaitingList}};
 
-handle_cast({vehicle_down, VehiclePid}, Env) ->
-  [Pos] = dict:fetch(VehiclePid, Env#state.vehicle_list),
+handle_cast({vehicle_down, Vehicle}, Env) ->
+  [Pos] = dict:fetch(Vehicle, Env#state.vehicle_list),
   %% Add timeout.
   NewEnv = release(Pos, Env),
   {noreply, NewEnv};
@@ -291,8 +282,8 @@ release_waiting_vehicle(Position, Waiting_list) ->
   end.
 
 notify_free_position(Value) ->
-  {VehiclePid, Ref} = Value,
-  gen_event:notify(VehiclePid, #event{type = notification, name = clear_to_move, content = Ref}).
+  {Requester, Ref} = Value,
+  gen_event:notify(Requester, #event{type = notification, name = clear_to_move, content = Ref}).
 
 is_position_free(Pos, Env) ->
   case digraph:vertex( Env#state.graph, Pos ) of

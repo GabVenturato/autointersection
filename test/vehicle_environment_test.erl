@@ -11,7 +11,7 @@ start_test() ->
   application:start(environment),
   application:start(vehicle),
   vehicle:initialize(get_route(Start, Finish), env),
-  env:occupy_position(random_vehicle(), "R_4"),
+  env:update_position(random_vehicle(), [], "R_4"),
   vehicle:startup().
 
 

@@ -14,9 +14,8 @@
 
 init([EnvLocation]) -> {ok, EnvLocation}.
 
-handle_event(#event{type = notification, name = position_changed, content = {Pid, OldPos, NewPos}}, EnvLocation) ->
-  gen_server:call(EnvLocation, {release_position, OldPos}),
-  gen_server:call(EnvLocation, {occupy_position, Pid, NewPos}),
+handle_event(#event{type = notification, name = position_changed, content = {OldPos, NewPos}}, EnvLocation) ->
+  gen_server:call(EnvLocation, {update_position, {node(), OldPos, NewPos}}),
   {ok, EnvLocation};
 
 handle_event(_, State) -> {ok, State}.

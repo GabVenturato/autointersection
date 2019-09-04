@@ -16,8 +16,8 @@ handle_event(#event{type = request, name = handle_position_type, content = Type}
   gen_server:cast(Pid, {handle_position_type, Type}),
   {ok, Pid};
 
-handle_event(#event{type = notification, name = vehicle_down, content = VehiclePid}, Pid) ->
-  gen_server:cast(Pid, {vehicle_down, VehiclePid}),
+handle_event(#event{type = notification, name = vehicle_down, content = Vehicle}, Pid) ->
+  gen_server:cast(Pid, {vehicle_down, Vehicle}),
   {ok, Pid};
 
 handle_event(#event{type = request, name = who_is_at, content = Pos}, Pid) -> 
