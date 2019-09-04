@@ -13,7 +13,7 @@ init([Pid]) ->
   {ok, Pid}.
 
 handle_event(#event{type = notification, name = moved}, Pid) ->
-  gen_server:cast(Pid, {moved}),
+  gen_server:cast(Pid, moved),
   {ok, Pid};
 
 handle_event(_, State) -> {ok, State}.

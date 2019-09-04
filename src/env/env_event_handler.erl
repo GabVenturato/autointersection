@@ -6,6 +6,8 @@
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, code_change/3,
  terminate/2]).
 
+-define(HOSTNAME, element(2,inet:gethostname())).
+
 -include("../../include/event.hrl").
 
 %%% -------------------------- Callback Functions -------------------------- %%%

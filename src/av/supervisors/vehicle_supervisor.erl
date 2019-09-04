@@ -11,7 +11,7 @@
 
 %% Supervisor configuration details
 -define(RESTART_STRATEGY, one_for_one).
--define(MAX_RESTART, 1).
+-define(MAX_RESTART, 0).
 -define(MAX_TIME, 60).
 
 %%% -------------------------- Interface Functions ------------------------- %%%

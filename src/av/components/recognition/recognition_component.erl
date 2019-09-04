@@ -41,7 +41,7 @@ init([CompDetails]) ->
 
 handle_call({position_type, Position}, _From, State) ->
   Pid = State#component.event_manager,
-  Type = get_position_type(State#component.sensor, Position),
+  Type = get_position_type(State#component.probe, Position),
   notify(Pid, #event{type = notification, name = position_type, content = Type}),
   {reply, ok, State}.
 
@@ -62,8 +62,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%% -------------------------- Private Functions --------------------------- %%%
 
 %% Ask the sensor to return the position status of a given position.
-get_position_type(SensorPid, Pos) ->
-  gen_server:call(SensorPid, {position_type, Pos}).
+get_position_type(ProbePid, Pos) ->
+  gen_server:call(ProbePid, {position_type, Pos}).
 
 register_event_handler(Pid, HandlerId) ->
   gen_event:add_handler(Pid, HandlerId, [self()]).

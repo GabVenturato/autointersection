@@ -1,11 +1,13 @@
 -module(coordinator).
 -behavior(gen_server).
 
+% Interface functions.
+-export([startup/0, initialize/2]).
+-export([start/1, start_link/1, start/3, start_link/3]).
+
 % Exports the required gen_server callbacks.
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
-
--export([start/1, start_link/1, start/3, start_link/3]).
 
 %$ Event Handlers (listeners) registered by the coordinator.
 -define(EVENT_HANDLER_IDS, [
@@ -50,10 +52,17 @@
 
 -record(internal, {supervisor,
                    event_manager,
-                   event_handlers,
-                   route}).
+                   event_handlers = [],
+                   route = []}).
 
 %%% -------------------------- Interface Functions ------------------------- %%%
+
+startup() ->
+    ?MODULE ! startup.
+
+initialize(Route, Components) ->
+  ?MODULE ! {update_route, Route},
+  ?MODULE ! {initialize_vehicle, Components}.
 
 start(SupPid) ->
   gen_server:start({local, ?MODULE}, ?MODULE, [SupPid], []).
@@ -67,25 +76,37 @@ start(Sup, Route, Components) ->
 start_link(Sup, Route, Components) ->
   gen_server:start_link({local, ?MODULE}, ?MODULE, [Sup, Route, Components], []).
 
+
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([Sup]) ->
-  self() ! {initialize_vehicle, Sup, []},
-  {ok, #internal{supervisor = Sup,route = []}};
+  {ok, #internal{supervisor = Sup}};
 
 init([Sup, Route, Components]) ->
+  self() ! {update_route, Route},
   self() ! {initialize_vehicle, Sup, Components},
-  {ok, #internal{supervisor = Sup, route = Route}}.
+  {ok, #internal{supervisor = Sup}}.
+
+handle_info(startup, State) ->
+  io:format("Startup msg received. ~n"),
+  CurrentPosition = current_position(State#internal.route),
+  startup_vehicle(CurrentPosition, State),
+  {noreply, State};
 
 %% Start all necessary components and event handlers.
 %% Necessary, see page 292 Learn You Some Erlang for Great Good!
-handle_info({initialize_vehicle, Sup, Components}, State) ->
+handle_info({initialize_vehicle, Components}, State) ->
+  Sup = State#internal.supervisor,
   {ok, EvMan} = supervisor:start_child(Sup, ?EVENT_MAN_SPEC([])),
   {ok, SupPid} = supervisor:start_child(Sup, ?COMP_SUP_SPEC([])),
-  EventHandlers = register_event_handlers(EvMan),
+  EventHandlers = register_event_handler(EvMan, ?EVENT_HANDLER_IDS ++ [?ENV_HANDLER]),
   start_components(SupPid, Components, EvMan),
   {noreply, State#internal{event_manager = EvMan,
                            event_handlers = EventHandlers}};
+
+handle_info({update_route, Route}, State) ->
+  {noreply, State#internal{route = Route}};
+
 
 handle_info(Msg, State) ->
   io:format("Unknown msg: ~p~n", [Msg]),
@@ -111,14 +132,8 @@ handle_call({position_type, Type}, _From, State) ->
   end,
   {reply, ack, State}.
 
-handle_cast({startup}, State) ->
-  io:format("Startup msg received. ~n"),
-  CurrentPosition = current_position(State#internal.route),
-  startup(CurrentPosition, State),
-  {noreply, State};
-
 %% Moved message received, clear to move forward in the path.
-handle_cast({moved}, State) ->
+handle_cast(moved, State) ->
   EvMan = State#internal.event_manager,
   Sup = State#internal.supervisor,
   OldRoute = State#internal.route,
@@ -128,14 +143,14 @@ handle_cast({moved}, State) ->
   check_positon_type(EvMan, current_position(NewRoute)),
   {noreply, State#internal{route = NewRoute}};
 
-handle_cast({breakdown}, State) ->
+handle_cast(breakdown, State) ->
+  io:format("Mechanical failure"),
   Sup = State#internal.supervisor,
   EvMan = State#internal.event_manager,
   notify(EvMan, #event{type = notification, name = vehicle_breakdown}),
   supervisor:terminate_child(Sup, component_sup),
   timer:sleep(?TOW_TRUCK_TIME),
   update_position(EvMan, Sup, current_position(State#internal.route), []),
-  io:format("Mechanical failure"),
   terminate("Mechanical failure.", State),
   {noreply, State};
 
@@ -144,7 +159,7 @@ handle_cast(_, State) -> {noreply, State}.
 terminate(_Reason, State) ->
   EvMan = State#internal.event_manager,
   HandlerIds = State#internal.event_handlers,
-  remove_event_handlers(EvMan, HandlerIds),
+  remove_event_handler(EvMan, HandlerIds),
   ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -165,21 +180,28 @@ start_component(Sup, C = #component{module = Module}, EvMan) ->
 
 %% Function necessary to 'startup the vehicle', to start the whole vehicle logic.
 %% Startup the vehicle from position 'Pos'.
-startup(Pos, State) ->
-  Sup = State#internal.supervisor, 
-  EvMan = State#internal.event_manager,
-  update_position(EvMan, Sup, [], Pos), 
-  check_positon_type(EvMan, Pos).
+startup_vehicle(Pos, State) ->
+  case Pos of
+    [] -> false;
+    _ ->
+      EvMan = State#internal.event_manager,
+      check_positon_type(EvMan, Pos),
+      update_position(State#internal.event_manager,
+                      State#internal.supervisor,
+                      [],
+                      Pos), 
+      true
+  end.
 
 %% Adds a list of event handlers to the event manager.
-register_event_handlers(Pid) ->
+register_event_handler(Pid, Handlers) ->
   Fun = fun(HandlerId) -> gen_event:add_handler(Pid, HandlerId, [self()]) end,
-  lists:map(Fun, ?EVENT_HANDLER_IDS ++ [?ENV_HANDLER]).
+  lists:map(Fun, Handlers).
 
 %% Remove all event handlers from the AV server.
-remove_event_handlers(Pid, HandlerIds) ->
+remove_event_handler(Pid, Handlers) ->
   Fun = fun(HandlerId) -> gen_event:delete_handler(Pid, HandlerId, []) end,
-  lists:map(Fun, HandlerIds),
+  lists:map(Fun, Handlers),
   [].
 
 %% The vehicle is ready to advance to the next position in the route.
@@ -210,6 +232,7 @@ next_position([]) -> {warning, route_empty};
 next_position([_]) -> {warning, route_completed}.
 
 %% Return the current position in the route.
+current_position([]) -> [];
 current_position(Route) -> hd(Route).
 
 update_position(Pid, VehiclePid, OldPos, NewPos) ->

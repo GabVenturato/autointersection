@@ -2,5 +2,5 @@
                     module,
                     supervisor,
                     event_manager,
-                    sensor,
+                    probe,
                     handler}).

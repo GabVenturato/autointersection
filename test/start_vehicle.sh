@@ -2,7 +2,7 @@
 
 if test $# -ne 1
 then
-	echo "command usage: start_vehicle.sh <vehicle_name>"
+	echo "command usage: initialize.sh <vehicle_name>"
 	exit 1
 fi
 

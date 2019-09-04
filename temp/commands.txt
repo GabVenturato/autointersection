@@ -9,31 +9,38 @@ erl -sname env -pa ebin/
 
 2) Execute in env.
 
-environment:start().
-gen_server:call(environment, {occupy_position, spawn(fun() -> timer:sleep(60000),
-                 gen_server:call(environment, {release_position, "R_5"}) end), "R_5"}).
+application:start(environment).
+env:occupy_position(spawn(fun() -> timer:sleep(60000), env:release_position("R_5") end), "R_5").
 
 3) QUICKLY execute in v3, v2, v1 respecting the order (timer in previous step set to 60s):
 	Make sure to modify the tuple {Name, Node} before !!
 
 
-Route = gen_server:call({environment, env@lenora}, {get_route, {"R_4", "R_30"}}),
-vehicle:start_vehicle(Route, {environment, env@lenora}),
-gen_server:cast({coordinator, v3@lenora}, {startup}).
+Route = rpc:call('env@lenora', env, get_route, ["R_4", "R_30"]).
+application:start(vehicle).
+vehicle:initialize(Route, {env, 'env@lenora'}).
+vehicle:startup().
 
-Route = gen_server:call({environment, env@lenora}, {get_route, {"R_2", "R_30"}}),
-vehicle:start_vehicle(Route, {environment, env@lenora}),
-gen_server:cast({coordinator, v2@lenora}, {startup}).
+Route = rpc:call('env@lenora', env, get_route, ["R_2", "R_30"]).
+application:start(vehicle).
+vehicle:initialize(Route, {env, 'env@lenora'}).
+vehicle:startup().
 
-Route = gen_server:call({environment, env@lenora}, {get_route, {"R_1", "R_30"}}),
-vehicle:start_vehicle(Route, {environment, env@lenora}),
-gen_server:cast({coordinator, v1@lenora}, {startup}).
-
+Route = rpc:call('env@lenora', env, get_route, ["R_1", "R_30"]).
+application:start(vehicle).
+vehicle:initialize(Route, {env, 'env@lenora'}).
+vehicle:startup().
 
 4) Alternative: to simulate mechanical failure run after 3) in node v3:
 	Tow truck time is set to 40s for testing purposes, defined in coordinator.erl	
 
-gen_server:cast({coordinator, v3@lenora}, {breakdown}).
+gen_server:cast({coordinator, 'v3@lenora'}, breakdown).
+
+
+
+---- For testing a single vehicle moving in the env:
+
+vehicle_environment_test:start_test().
 
 
 

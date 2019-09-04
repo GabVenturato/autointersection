@@ -70,14 +70,14 @@ handle_cast({handle_position_type, Type}, State) ->
   {noreply, State};
 
 handle_cast({who_is_at, Position}, State) ->
-  Pid = State#component.sensor,
+  Pid = State#component.probe,
   Result = get_vehicle_at(Pid, Position),
   notify(State#component.event_manager, 
          #event{type = notification, name = vehicle_at, content = {Position, Result}}),
   {noreply, State};
 
 handle_cast({vehicle_down, VehiclePid}, State) ->
-  Pid = State#component.sensor,
+  Pid = State#component.probe,
   signal_vehicle_down(Pid, VehiclePid),
   {noreply, State};
 

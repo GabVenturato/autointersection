@@ -14,7 +14,7 @@ init([Pid]) -> {ok, Pid}.
 
 
 handle_event(#event{type = system, name = startup}, Pid) -> 
-  gen_server:cast(Pid, {startup}),
+  gen_server:cast(Pid, startup),
   {ok, Pid};
   
 handle_event(_, State) -> {ok, State}.
