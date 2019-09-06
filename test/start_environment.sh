@@ -1,2 +1,2 @@
 #/bin/bash
-erl -sname environment -pa ../ebin/ -eval "environment:start(\"../conf\")."
+erl -sname env -pa ebin/ -eval "application:start(environment)."

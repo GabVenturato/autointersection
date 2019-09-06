@@ -4,6 +4,7 @@
 % Interface functions.
 -export([startup/0, initialize/2, set_testing_environment/1]).
 -export([start/1, start_link/1, start/3, start_link/3]).
+-export([cause_mechanical_failure/0]).
 
 % Exports the required gen_server callbacks.
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -66,6 +67,9 @@ initialize(Route, Components) ->
 
 set_testing_environment(EnvLocation) ->
   ?MODULE ! {start_environment_listener, EnvLocation}.
+
+cause_mechanical_failure() ->
+  gen_server:cast(?MODULE, breakdown).
 
 start(SupPid) ->
   gen_server:start({local, ?MODULE}, ?MODULE, [SupPid], []).

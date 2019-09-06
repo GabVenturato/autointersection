@@ -9,7 +9,7 @@
 -export([ready/3, election/3, crossing/3]).
 
 -record( cross,
-  { env               % environment reference (i.e. Pid / info to contact it)
+  { probe             % sensors reference (i.e. Pid / info to contact them)
   , ev_man            % event manager reference
   , nonce             % note: ID = (nonce, wait_counter)
   , wait_counter = 0  % how many vehicles crossed before me
@@ -29,11 +29,11 @@
 
 %%% -------------------------- Interface Functions ------------------------- %%%
 
-start(Env, EvMan) ->
-  gen_statem:start({local, ?MODULE}, ?MODULE, [Env, EvMan], []).
+start(Probe, EvMan) ->
+  gen_statem:start({local, ?MODULE}, ?MODULE, [Probe, EvMan], []).
 
-start_link(Env, EvMan) ->
-  gen_statem:start_link({local, ?MODULE}, ?MODULE, [Env, EvMan], []).
+start_link(Probe, EvMan) ->
+  gen_statem:start_link({local, ?MODULE}, ?MODULE, [Probe, EvMan], []).
 
 
 callback_mode() ->
@@ -45,32 +45,42 @@ print_state() ->
 
 %%% -------------------------- Callback Functions -------------------------- %%%
 
-init([Env, EvMan]) ->
+init([Probe, EvMan]) ->
   process_flag(trap_exit, true),
   gen_event:add_handler(EvMan, ?EVENT_HANDLER_ID, [self()]),
 
   Data = #cross
-    { env = Env
+    { probe = Probe
     , ev_man = EvMan
     , nonce = generate_nonce()
-    , participants = get_participants( Env )
+    , participants = get_participants( Probe )
     },
   
   Participants = participants( Data ),
   AllParticipants = Participants ++ lists:map(
     fun get_reference/1,
-    gen_server:call(Env, get_crossing_participants)
+    gen_server:call(Probe, get_crossing_participants)
   ),
-  io:format( "Participants: ~p~n", [Participants] ),
-  io:format( "AllParticipants: ~p and ~p~n", [Data#cross.participants, AllParticipants] ),
-  
-  cast_vehicles( AllParticipants, {whos_leader, ?SELF_REF} ),
-  { ok
-  , ready
-  , Data
-  , [ {{timeout, need_election}, ?TIMEOUT_ANSWER, need_election}
-    ]
-  }.
+  % io:format( "Participants: ~p~n", [Participants] ),
+  % io:format( "AllParticipants: ~p~n", [AllParticipants] ),
+
+  case AllParticipants of
+    [] -> % If there are no participants, I'm the leader and start crossing
+      io:format("No participants, I'm the leader!~n"),
+      gen_event:notify(
+        Data#cross.ev_man, 
+        #event{type = notification, name = position_type, content = normal}
+      ),
+      {ok, crossing, Data#cross{ role = leader }};
+    _  -> % otherwise ask who is the leader
+      cast_vehicles( AllParticipants, {whos_leader, ?SELF_REF} ),
+      { ok
+      , ready
+      , Data
+      , [ {{timeout, need_election}, ?TIMEOUT_ANSWER, need_election}
+        ]
+      }
+  end.
 
 terminate(Reason, _State, Data) ->
   gen_event:delete_handler( Data#cross.ev_man, ?EVENT_HANDLER_ID, [] ),
@@ -94,8 +104,9 @@ ready({timeout, need_election}, need_election, Data) ->
     ]
   };
 
-%% New leader received (when a candidate becomes the new leader)
-ready(cast, {leader, {_, Node } = L}, Data) ->
+%% New leader received (when a candidate becomes the new leader or if joining 
+%%  when someone just winned an election)
+ready(cast, {coordinator, {_, Node } = L}, Data) ->
   io:format( "Found leader: ~p~n", [L] ),
   erlang:monitor_node( Node, true ),
   { keep_state
@@ -117,7 +128,7 @@ ready(cast, {election, _From, _Id}, Data) ->
 %% Received a promotion message. I am going to be the new leader.
 ready(cast, promotion, Data) ->
   io:format( "Promotion received. I'm the new leader.~n" ),
-  cast_vehicles( participants( Data ), {leader, ?SELF_REF} ),
+  cast_vehicles( participants( Data ), {coordinator, ?SELF_REF} ),
   gen_event:notify(
     Data#cross.ev_man, 
     #event{type = notification, name = position_type, content = normal}
@@ -127,6 +138,7 @@ ready(cast, promotion, Data) ->
   , Data#cross
       { role = leader
       , candidate = clockwise_next( Data#cross.participants, ?SELF_REF )
+      , wait_counter = gen_server:call( Data#cross.probe, get_entrance_number )
       }
   , [ {{timeout, need_election}, infinity, undefined}
     ]
@@ -216,7 +228,9 @@ election(cast, {coordinator, {_, Node} = L}, Data) ->
 
 ?HANDLE_COMMON.
 
+
 %%% STATE: CROSSING
+
 crossing(cast, crossing_complete, Data) ->
   io:format( 
     "Crossing complete! Pass the lead to ~p~n", 
@@ -227,15 +241,17 @@ crossing(cast, crossing_complete, Data) ->
   {stop, normal};
 
 crossing(cast, {whos_leader, From}, Data) ->
-  gen_statem:cast( From, {leader, ?SELF_REF} ),
-  Participants = get_participants( Data#cross.env ),
+  gen_statem:cast( From, {coordinator, ?SELF_REF} ),
+  Participants = get_participants( Data#cross.probe ),
   {keep_state, Data#cross{participants = Participants}};
+
+crossing(cast, {election, _From, _Id}, Data) ->
+  cast_vehicles( participants( Data ), {coordinator, ?SELF_REF} ),
+  keep_state_and_data;
 
 crossing(cast, Msg, _Data) ->
   io:format( "Ignoring message: ~p~n", [Msg] ),
-  keep_state.
-
-%%% STATE: CRASH
+  keep_state_and_data.
 
 
 %%% HANDLE COMMON
@@ -244,10 +260,10 @@ crossing(cast, Msg, _Data) ->
 %%  answere only if I am the leader
 handle_common(cast, {whos_leader, From}, Data) ->
   case Data#cross.role of
-    leader -> gen_statem:cast( From, {leader, ?SELF_REF} );
+    leader -> gen_statem:cast( From, {coordinator, ?SELF_REF} );
     _      -> nothing
   end,
-  Participants = get_participants( Data#cross.env ),
+  Participants = get_participants( Data#cross.probe ),
   {keep_state, Data#cross{participants = Participants}};
 
 %% The leader completed the crossing
@@ -261,26 +277,41 @@ handle_common(cast, crossed, #cross{wait_counter = Wait} = Data) ->
 %% Print current data
 handle_common(cast, print_state, Data) ->
   io:format("DATA RECORD
-    env: ~p
+    probe: ~p
     id: ~p
     participants: ~p
     role: ~p
     leader: ~p
     candidate: ~p
     wait_counter: ~p~n",
-    [ Data#cross.env, Data#cross.nonce, Data#cross.participants
+    [ Data#cross.probe, Data#cross.nonce, Data#cross.participants
     , Data#cross.role, Data#cross.leader, Data#cross.candidate
     , Data#cross.wait_counter]),
   keep_state_and_data;
 
-% Only the leader is  monitored, so if received nodedown is because it failed
-handle_common(info, {nodedown, Node}, _Data) ->
-  io:format( "Leader down: ~p~n", [Node] ),
-  keep_state_and_data;
+%% Only the leader is  monitored, so if received nodedown is because it failed
+handle_common(info, {nodedown, Node}, Data) ->
+  io:format( "Leader ~p down! Election needed!~n", [Node] ),
+  cast_vehicles( 
+    participants( Data ),
+    {election, ?SELF_REF, get_my_id( Data )}
+  ),
+  { next_state
+  , election
+  , Data
+  , [ {{timeout, election_expired}, ?TIMEOUT_ELECTION, election_expired}
+    ]
+  };
 
-handle_common(cast, mechanical_failure, _Data) ->
+%% I have a mechanical failure
+handle_common(cast, mechanical_failure, Data) ->
   io:format( "Mechanical failure detected~n" ),
-  keep_state_and_data;
+  if 
+    Data#cross.role == leader -> 
+      gen_statem:cast( Data#cross.candidate, promotion );
+    true -> nothing
+  end,
+  {stop, normal};
 
 handle_common(cast, Msg, _Data) ->
   io:format( "Unexpected message: ~p~n", [Msg] ),
@@ -304,9 +335,7 @@ get_reference(Node) -> {?MODULE, Node}.
 
 %% Generate nonce to identify the vehicle
 generate_nonce() ->
-  Node = erlang:atom_to_list( node() ),
-  Pid = erlang:pid_to_list( self() ),
-  crypto:hash( md5, Node ++ Pid ).
+  erlang:atom_to_list( node() ).
 
 %% Get current id needed to perform the election algorithm
 get_my_id(Data) -> { Data#cross.wait_counter, Data#cross.nonce }.
@@ -322,11 +351,11 @@ gt_id( {W1, Id1}, {W2, Id2} ) ->
 
 %%% Participants
 
-%% Get all participants at the verge of the intersection from the environment
-get_participants(Env) ->
+%% Get all participants at the verge of the intersection from the sensors
+get_participants(Probe) ->
   lists:map(
     fun get_reference/1,
-    gen_server:call(Env, get_participants)
+    gen_server:call(Probe, get_participants)
     ).
 
 %% Get participants which are not myself

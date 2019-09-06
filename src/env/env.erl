@@ -5,12 +5,14 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3]).
 -export([ is_position_free/1, update_position/3, get_participants/0
         , get_crossing_participants/0, get_position_type/1, get_route/2
+        , get_start_positions/0, get_finish_positions/0, get_entrance_number/0
         , terminate/2
         ]).
 
 -record(state,
   { ins = []
   , outs = []
+  , internal = []
   , start = []
   , finish = []
   , graph
@@ -71,6 +73,15 @@ get_participants() ->
 get_crossing_participants() ->
   gen_server:call(?MODULE, get_crossing_participants).
 
+get_start_positions() ->
+  gen_server:call(?MODULE, get_start_positions).
+
+get_finish_positions() ->
+  gen_server:call(?MODULE, get_finish_positions).
+
+get_entrance_number() ->
+  gen_server:call(?MODULE, get_entrance_number).
+
 %%% -------------------------- Callback Functions -------------------------- %%%
 init([ConfDir]) ->
   InitEnv = #state{ graph = digraph:new(),
@@ -116,9 +127,21 @@ handle_call(get_participants, _From, Env) ->
 
 %% get_crossing_participants
 handle_call(get_crossing_participants, _From, Env) ->
-  Pos = lists:subtract( digraph:vertices( Env#state.graph ), Env#state.ins ),
+  Pos = Env#state.internal ++ Env#state.outs,
   Participants = get_participants_list( Env,  Pos ),
   {reply, Participants, Env};
+
+%% get_start_positions
+handle_call(get_start_positions, _From, Env) ->
+  {reply, Env#state.start, Env};
+
+%% get_finish_positions
+handle_call(get_finish_positions, _From, Env) ->
+  {reply, Env#state.finish, Env};
+
+%% get_entrance_number
+handle_call(get_entrance_number, _From, Env) ->
+  {reply, erlang:length( Env#state.ins ), Env};
 
 %% unexpected message
 handle_call(Msg, _From, Env) -> {reply, {unexpected_message, Msg}, Env}.
@@ -164,8 +187,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%% Stop the environment process
 
-terminate(normal, _Env) -> ok.
-% terminate({error, Reason}, _Env) -> {error, Reason}.
+terminate(Reason, _Env) -> {ok, Reason}.
 
 %%% -------------------------- Private Functions --------------------------- %%%
 
@@ -194,10 +216,16 @@ add_nodes(Env, [Elem|Content]) ->
     {edge, _, _} -> add_nodes( Env, Content ); % ignore edges
     {V, Node} -> 
       Env1 = case V of
-        intersection_entrance -> Env#state{ ins  = Env#state.ins ++ [Node] };
-        intersection_exit -> Env#state{ outs = Env#state.outs ++ [Node] };
-        start -> Env#state{ start = Env#state.start ++ [Node] };
-        finish -> Env#state{ finish = Env#state.finish ++ [Node] };
+        intersection_entrance ->
+          Env#state{ ins  = Env#state.ins ++ [Node] };
+        intersection_exit ->
+          Env#state{ outs = Env#state.outs ++ [Node] };
+        intersection_internal -> 
+          Env#state{ internal = Env#state.internal ++ [Node] };
+        start ->
+          Env#state{ start = Env#state.start ++ [Node] };
+        finish ->
+          Env#state{ finish = Env#state.finish ++ [Node] };
         _ -> Env
       end,
       G = Env1#state.graph,
@@ -245,7 +273,11 @@ add(Pid, Pos, Env) ->
     {_, #vertex_info{vehicle = Pid}} -> 
       io:format("A vehicle is already in that position: ~p~n", [Pos]);
     {_, #vertex_info{type = Type}} -> 
-      digraph:add_vertex(Env#state.graph, Pos, #vertex_info{vehicle = Pid, type = Type});
+      digraph:add_vertex(
+        Env#state.graph,
+        Pos,
+        #vertex_info{vehicle = Pid, type = Type}
+      );
     _ -> 
       io:format("Unknown position: ~p~n", [Pos])
   end,
@@ -283,7 +315,10 @@ release_waiting_vehicle(Position, Waiting_list) ->
 
 notify_free_position(Value) ->
   {Requester, Ref} = Value,
-  gen_event:notify(Requester, #event{type = notification, name = clear_to_move, content = Ref}).
+  gen_event:notify(
+    Requester, 
+    #event{type = notification, name = clear_to_move, content = Ref}
+  ).
 
 is_position_free(Pos, Env) ->
   case digraph:vertex( Env#state.graph, Pos ) of

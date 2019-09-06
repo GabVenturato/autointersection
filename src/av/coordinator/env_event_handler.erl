@@ -1,6 +1,3 @@
-%%% FIRST ARGUMENT OF gen_server:call() MUST BE CHANGED TO THE APPROPRIATE
-%%% {environment, Node} TUPLE !!!!!
-
 -module(env_event_handler).
 -behavior(gen_event).
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, code_change/3,
@@ -8,13 +5,17 @@
 
 -define(HOSTNAME, element(2,inet:gethostname())).
 
--include("../../include/event.hrl").
+-include("../../../include/event.hrl").
 
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([EnvLocation]) -> {ok, EnvLocation}.
 
-handle_event(#event{type = notification, name = position_changed, content = {OldPos, NewPos}}, EnvLocation) ->
+handle_event(#event
+    { type = notification
+    , name = position_changed
+    , content = {OldPos, NewPos}
+    }, EnvLocation) ->
   gen_server:call(EnvLocation, {update_position, {node(), OldPos, NewPos}}),
   {ok, EnvLocation};
 
