@@ -4,7 +4,6 @@
 -include("../../../../../include/event.hrl").
 
 -export([start/2, start_link/2, callback_mode/0]).
--export([print_state/0]).
 -export([init/1, terminate/3, handle_common/3]).
 -export([ready/3, election/3, crossing/3]).
 
@@ -41,10 +40,6 @@ start_link(Probe, EvMan) ->
 callback_mode() ->
   state_functions.
 
-%% Print current data
-print_state() ->
-  gen_statem:cast(?MODULE, print_state).
-
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([Probe, EvMan]) ->
@@ -64,8 +59,6 @@ init([Probe, EvMan]) ->
     fun get_reference/1,
     gen_server:call(Probe, get_crossing_participants)
   ),
-  % io:format( "Participants: ~p~n", [Participants] ),
-  % io:format( "AllParticipants: ~p~n", [AllParticipants] ),
 
   case AllParticipants of
     [] -> % If there are no participants, I'm the leader and start crossing
@@ -91,9 +84,9 @@ terminate(Reason, _State, Data) ->
 
 
 %%% STATE: READY
-%%%  AV ready to cross but it is not the leader, waiting its turn.
+%%%  Vehicle ready to cross but it is not the leader, waiting its turn.
 
-%% Timout need_election expired -> an election is needed
+%% Timout need_election expired: an election is needed.
 ready({timeout, need_election}, need_election, Data) ->
   io:format( "Timeout expired, election needed.~n" ),
   cast_vehicles( 
@@ -107,7 +100,7 @@ ready({timeout, need_election}, need_election, Data) ->
     ]
   };
 
-%% New leader received (when a candidate becomes the new leader or if joining 
+%% New leader received (when a candidate becomes the new leader or if joining.
 %%  when someone just winned an election)
 ready(cast, {coordinator, {_, Node} = L}, Data) ->
   io:format( "Found leader: ~p~n", [L] ),
@@ -118,7 +111,7 @@ ready(cast, {coordinator, {_, Node} = L}, Data) ->
     ]
   };
 
-%% Received a request to perform an election, postpone it to "election" state
+%% Received a request to perform an election, postpone it to "election" state.
 ready(cast, {election, _From, _Id}, Data) ->
   { next_state
   , election
@@ -151,7 +144,9 @@ ready(cast, promotion, Data) ->
 
 
 %%% STATE: ELECTION
-%%%  Participants need to find a leader which will starts to cross
+%%%   Participants need to find a leader which will starts to cross. A slightly
+%%%   modified version of the Bully Algorithm is applied here: the IDs are not
+%%%   known a priori. Still, it guarantees anyway safety and liveness.
 
 %% Election message was sent, but no one answered, so I am the leader.
 election({timeout, election_expired}, election_expired, Data) ->
@@ -169,7 +164,7 @@ election({timeout, election_expired}, election_expired, Data) ->
       }
   };
 
-%% Expected to receive coordinator message but none arrived, so do new election
+%% Expected to receive coordinator message but none arrived, so do new election.
 election({timeout, answer_expired}, answer_expired, Data) ->
   io:format( "Answer expired, election needed.~n" ),
   cast_vehicles(
@@ -181,7 +176,7 @@ election({timeout, answer_expired}, answer_expired, Data) ->
     ]
   };
 
-%% Election message received: forward the election only if myID > receivedID
+%% Election message received: forward the election only if myID > receivedID.
 election(cast, {election, From, Id}, Data) ->
   io:format( "Election message received." ),
   MyId = get_my_id( Data ),
@@ -206,7 +201,7 @@ election(cast, {election, From, Id}, Data) ->
       }
   end;
 
-%% Answer message received: I am not the one with the greatest ID
+%% Answer message received: I am not the one with the greatest ID.
 election(cast, answer, _Data) ->
   io:format( "Received answer. Wait for coordinator message.~n" ),
   { keep_state_and_data
@@ -216,7 +211,7 @@ election(cast, answer, _Data) ->
   };
 
 %% Coordinator message received. Leader is elected, monitor it and conclude 
-%%  the election algorithm
+%%  the election algorithm.
 election(cast, {coordinator, {_, Node} = L}, Data) ->
   io:format( "Found coordinator: ~p~n", [L] ),
   MonitorRef = erlang:monitor( process, {?SUP_MODULE, Node} ),
@@ -236,7 +231,12 @@ election({timeout, need_election}, need_election, _Data) ->
 
 
 %%% STATE: CROSSING
+%%%   When the leader is crossing. This state doesn't have the handle_common
+%%%   part, so some messages are handled both here and below in handle_common
+%%%   function: whos_leader, mechanical_failure.
 
+%% I have completed the crossing: notify all participants and promote the
+%%  candidate.
 crossing(cast, crossing_complete, Data) ->
   io:format( 
     "Crossing complete! Pass the lead to ~p~n", 
@@ -246,12 +246,15 @@ crossing(cast, crossing_complete, Data) ->
   gen_statem:cast( Data#cross.candidate, promotion ),
   {stop, normal};
 
+%% New vehicle arrived at the intersection and asked who is the new leader:
+%%  I'm the leader, so I answer. Participants are also updated.
 crossing(cast, {whos_leader, From}, Data) ->
   gen_statem:cast( From, {coordinator, ?SELF_REF} ),
   Participants = get_participants( Data#cross.probe ),
   {keep_state, Data#cross{participants = Participants}};
 
-%% I have a mechanical failure
+%% I have a mechanical failure: pretend to have crossed and promote the 
+%%  candidate to new leader. Further details in handle_common below.
 crossing(cast, mechanical_failure, Data) ->
   io:format( 
     "Mechanical failure detected. Pass the lead to ~p~n", 
@@ -261,6 +264,7 @@ crossing(cast, mechanical_failure, Data) ->
   gen_statem:cast( Data#cross.candidate, promotion ),
   {stop, normal};
 
+%% If an election message is received, notify to all that I'm still the leader.
 crossing(cast, {election, _From, _Id}, Data) ->
   cast_vehicles( participants( Data ), {coordinator, ?SELF_REF} ),
   keep_state_and_data;
@@ -273,7 +277,7 @@ crossing(cast, Msg, _Data) ->
 %%% HANDLE COMMON
 
 %% New vehicle arrived at the intersection and asked who is the new leader:
-%%  answere only if I am the leader
+%%  answere only if I am the leader.
 handle_common(cast, {whos_leader, From}, Data) ->
   case Data#cross.role of
     leader -> gen_statem:cast( From, {coordinator, ?SELF_REF} );
@@ -282,7 +286,8 @@ handle_common(cast, {whos_leader, From}, Data) ->
   Participants = get_participants( Data#cross.probe ),
   {keep_state, Data#cross{participants = Participants}};
 
-%% The leader completed the crossing
+%% The leader completed the crossing: update participants and wait for 
+%%  coordinator message to arrive.
 handle_common(cast, crossed, #cross{wait_counter = Wait} = Data) ->
   Participants = get_participants( Data#cross.probe ),
   { keep_state
@@ -291,22 +296,7 @@ handle_common(cast, crossed, #cross{wait_counter = Wait} = Data) ->
     ]
   };
 
-%% Print current data
-handle_common(cast, print_state, Data) ->
-  io:format("DATA RECORD
-    probe: ~p
-    id: ~p
-    participants: ~p
-    role: ~p
-    leader: ~p
-    candidate: ~p
-    wait_counter: ~p~n",
-    [ Data#cross.probe, Data#cross.nonce, Data#cross.participants
-    , Data#cross.role, Data#cross.leader, Data#cross.candidate
-    , Data#cross.wait_counter]),
-  keep_state_and_data;
-
-%% If the current leader fails do a new election
+%% If the current leader fails, do a new election.
 handle_common(info, {'DOWN', Reference, process, Object, _Info}, Data) ->
   if
     Reference == Data#cross.monitor_ref ->
@@ -324,7 +314,11 @@ handle_common(info, {'DOWN', Reference, process, Object, _Info}, Data) ->
     true -> keep_state_and_data
   end;
 
-%% I have a mechanical failure
+%% I have a mechanical failure. If I'm the leader: pretend to have crossed and
+%%  promote the candidate to new leader.
+%%  Note: The "fake" crossed notification let other vehicles to start a
+%%  neet_election timer, so if they don't receive the coordinator message from
+%%  the new leader (actual candiate), they start a new election.
 handle_common(cast, mechanical_failure, Data) ->
   io:format( "Mechanical failure detected." ),
   if 
@@ -344,7 +338,7 @@ handle_common(cast, Msg, _Data) ->
 
 %%% -------------------------- Private Functions --------------------------- %%%
 
-%% Cast all vehicles in the list with the message Msg
+%% Cast all vehicles in the list with the message Msg.
 cast_vehicles([AV|Vehicles], Msg) ->
   gen_statem:cast( AV, Msg ),
   cast_vehicles( Vehicles, Msg );
@@ -353,17 +347,16 @@ cast_vehicles([], _) -> ok.
 
 %%% References and IDs
 
-%% Get reference to contact the right process located in another node
+%% Get reference to contact the right process located in another node.
 get_reference(Node) -> {?MODULE, Node}.
 
-%% Generate nonce to identify the vehicle
-generate_nonce() ->
-  erlang:atom_to_list( node() ).
+%% Generate nonce to identify the vehicle.
+generate_nonce() -> erlang:atom_to_list( node() ).
 
-%% Get current id needed to perform the election algorithm
+%% Get current id needed to perform the election algorithm.
 get_my_id(Data) -> { Data#cross.wait_counter, Data#cross.nonce }.
 
-%% Greater-than for IDs
+%% Greater-than for IDs.
 gt_id( {W1, Id1}, {W2, Id2} ) ->
   if
     W1 > W2 -> true;
@@ -374,18 +367,18 @@ gt_id( {W1, Id1}, {W2, Id2} ) ->
 
 %%% Participants
 
-%% Get all participants at the verge of the intersection from the sensors
+%% Get all participants at the verge of the intersection from the sensors.
 get_participants(Probe) ->
   lists:map(
     fun get_reference/1,
     gen_server:call(Probe, get_participants)
     ).
 
-%% Get participants which are not myself
+%% Get participants which are not myself.
 participants(Data) ->
   lists:delete( ?SELF_REF, Data#cross.participants ).
 
-%% Get next vehicle in clockwise manner. It is assumed that P is in the list
+%% Get next vehicle in clockwise manner. It is assumed that P is in the list.
 clockwise_next([_], _) -> null;
 clockwise_next([AV|Vehicles], P) ->
   if
