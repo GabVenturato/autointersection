@@ -9,19 +9,21 @@
 -export([ready/3, election/3, crossing/3]).
 
 -record( cross,
-  { probe             % sensors reference (i.e. Pid / info to contact them)
-  , ev_man            % event manager reference
-  , nonce             % note: ID = (nonce, wait_counter)
-  , wait_counter = 0  % how many vehicles crossed before me
-  , participants      % list that include myself
-  , role = simple     % possible values: simple | leader
-  , leader = null     % leader reference
-  , candidate = null  % candidate reference
+  { probe               % sensors reference (i.e. Pid / info to contact them)
+  , ev_man              % event manager reference
+  , nonce               % note: ID = (nonce, wait_counter)
+  , wait_counter = 0    % how many vehicles crossed before me
+  , participants        % list that include myself
+  , role = simple       % possible values: simple | leader
+  , leader = null       % leader reference
+  , candidate = null    % candidate reference
+  , monitor_ref = null  % leader monitor 
   }).
 
 -define( TIMEOUT_ELECTION, 2 * 1000 ). % milliseconds
 -define( TIMEOUT_ANSWER, ?TIMEOUT_ELECTION * 2 ).
 -define( SELF_REF, {?MODULE, node()} ).
+-define( SUP_MODULE, vehicle_supervisor ).
 
 -define( EVENT_HANDLER_ID, {ic_event_handler, make_ref()} ).
 
@@ -54,6 +56,7 @@ init([Probe, EvMan]) ->
     , ev_man = EvMan
     , nonce = generate_nonce()
     , participants = get_participants( Probe )
+    , monitor_ref = make_ref() % random ref to not cause badarg in demonitor
     },
   
   Participants = participants( Data ),
@@ -106,11 +109,11 @@ ready({timeout, need_election}, need_election, Data) ->
 
 %% New leader received (when a candidate becomes the new leader or if joining 
 %%  when someone just winned an election)
-ready(cast, {coordinator, {_, Node } = L}, Data) ->
+ready(cast, {coordinator, {_, Node} = L}, Data) ->
   io:format( "Found leader: ~p~n", [L] ),
-  erlang:monitor_node( Node, true ),
+  MonitorRef = erlang:monitor( process, {?SUP_MODULE, Node} ),
   { keep_state
-  , Data#cross{ leader = L }
+  , Data#cross{ leader = L, monitor_ref = MonitorRef }
   , [ {{timeout, need_election}, infinity, undefined}
     ]
   };
@@ -216,15 +219,18 @@ election(cast, answer, _Data) ->
 %%  the election algorithm
 election(cast, {coordinator, {_, Node} = L}, Data) ->
   io:format( "Found coordinator: ~p~n", [L] ),
-  erlang:monitor_node( Node, false ), % remove old monitor if exists
-  erlang:monitor_node( Node, true ),  % start a new monitor
+  MonitorRef = erlang:monitor( process, {?SUP_MODULE, Node} ),
   { next_state
   , ready
-  , Data#cross{ leader = L }
+  , Data#cross{ leader = L, monitor_ref = MonitorRef }
   , [ {{timeout, answer_expired}, infinity, undefined}
     , {{timeout, election_expired}, infinity, undefined}
     ]
   };
+
+%% Already performing an election, ignore.
+election({timeout, need_election}, need_election, _Data) ->
+  keep_state_and_data;
 
 ?HANDLE_COMMON.
 
@@ -244,6 +250,16 @@ crossing(cast, {whos_leader, From}, Data) ->
   gen_statem:cast( From, {coordinator, ?SELF_REF} ),
   Participants = get_participants( Data#cross.probe ),
   {keep_state, Data#cross{participants = Participants}};
+
+%% I have a mechanical failure
+crossing(cast, mechanical_failure, Data) ->
+  io:format( 
+    "Mechanical failure detected. Pass the lead to ~p~n", 
+    [Data#cross.candidate] 
+  ),
+  cast_vehicles( participants( Data ), crossed ), % pretend to have crossed
+  gen_statem:cast( Data#cross.candidate, promotion ),
+  {stop, normal};
 
 crossing(cast, {election, _From, _Id}, Data) ->
   cast_vehicles( participants( Data ), {coordinator, ?SELF_REF} ),
@@ -268,8 +284,9 @@ handle_common(cast, {whos_leader, From}, Data) ->
 
 %% The leader completed the crossing
 handle_common(cast, crossed, #cross{wait_counter = Wait} = Data) ->
+  Participants = get_participants( Data#cross.probe ),
   { keep_state
-  , Data#cross{wait_counter = Wait + 1}
+  , Data#cross{ participants = Participants, wait_counter = Wait + 1 }
   , [ {{timeout, need_election}, ?TIMEOUT_ANSWER, need_election}
     ]
   };
@@ -289,27 +306,33 @@ handle_common(cast, print_state, Data) ->
     , Data#cross.wait_counter]),
   keep_state_and_data;
 
-%% Only the leader is  monitored, so if received nodedown is because it failed
-handle_common(info, {nodedown, Node}, Data) ->
-  io:format( "Leader ~p down! Election needed!~n", [Node] ),
-  cast_vehicles( 
-    participants( Data ),
-    {election, ?SELF_REF, get_my_id( Data )}
-  ),
-  { next_state
-  , election
-  , Data
-  , [ {{timeout, election_expired}, ?TIMEOUT_ELECTION, election_expired}
-    ]
-  };
+%% If the current leader fails do a new election
+handle_common(info, {'DOWN', Reference, process, Object, _Info}, Data) ->
+  if
+    Reference == Data#cross.monitor_ref ->
+      io:format( "Leader ~p down! Election needed!~n", [Object] ),
+      cast_vehicles( 
+        participants( Data ),
+        {election, ?SELF_REF, get_my_id( Data )}
+      ),
+      { next_state
+      , election
+      , Data
+      , [ {{timeout, election_expired}, ?TIMEOUT_ELECTION, election_expired}
+        ]
+      };
+    true -> keep_state_and_data
+  end;
 
 %% I have a mechanical failure
 handle_common(cast, mechanical_failure, Data) ->
-  io:format( "Mechanical failure detected~n" ),
+  io:format( "Mechanical failure detected." ),
   if 
-    Data#cross.role == leader -> 
+    Data#cross.role == leader ->
+      io:format( " Pass the lead to ~p~n", [Data#cross.candidate] ),
+      cast_vehicles( participants( Data ), crossed ), % pretend to have crossed
       gen_statem:cast( Data#cross.candidate, promotion );
-    true -> nothing
+    true -> io:format( "~n" ), nothing
   end,
   {stop, normal};
 
