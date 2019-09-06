@@ -153,7 +153,7 @@ handle_cast(moved, State) ->
   {noreply, State#internal{route = NewRoute}};
 
 handle_cast(breakdown, State) ->
-  io:format("Mechanical failure"),
+  io:format("Mechanical failure. Waiting for the tow truck..."),
   Sup = State#internal.supervisor,
   EvMan = State#internal.event_manager,
   notify(EvMan, #event{type = notification, name = vehicle_breakdown}),

@@ -8,7 +8,7 @@
 
 -define(HOSTNAME, element(2,inet:gethostname())).
 
--include("../../include/event.hrl").
+-include("../../../include/event.hrl").
 
 %%% -------------------------- Callback Functions -------------------------- %%%
 
