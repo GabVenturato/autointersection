@@ -4,6 +4,7 @@
 % Interface functions.
 -export([startup/0, initialize/2, set_testing_environment/1]).
 -export([start/1, start_link/1, start/3, start_link/3]).
+-export([cause_mechanical_failure/0]).
 
 % Exports the required gen_server callbacks.
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -67,6 +68,9 @@ initialize(Route, Components) ->
 set_testing_environment(EnvLocation) ->
   ?MODULE ! {start_environment_listener, EnvLocation}.
 
+cause_mechanical_failure() ->
+  gen_server:cast(?MODULE, breakdown).
+
 start(SupPid) ->
   gen_server:start({local, ?MODULE}, ?MODULE, [SupPid], []).
 
@@ -128,12 +132,14 @@ handle_call({position_type, Type}, _From, State) ->
       advance(Pid, State#internal.route);
     intersection_entrance -> 
       resolve(Pid, Type);
+    intersection_internal ->
+      advance(Pid, State#internal.route); 
     intersection_exit ->
       advance(Pid, State#internal.route);
     start ->
       advance(Pid, State#internal.route);
     finish -> 
-      update_position(Pid, State#internal.supervisor, current_position(State#internal.route), []), 
+      update_position(Pid, current_position(State#internal.route), []), 
       io:format("Arrived at destination. ~n");
     _ -> 
       io:format("Cannot handle such position type! ~p~n", [Type])
@@ -143,24 +149,22 @@ handle_call({position_type, Type}, _From, State) ->
 %% Moved message received, clear to move forward in the path.
 handle_cast(moved, State) ->
   EvMan = State#internal.event_manager,
-  Sup = State#internal.supervisor,
   OldRoute = State#internal.route,
   NewRoute = make_a_step(OldRoute),
   io:format("Vehicle moved in position: ~p~n", [hd(NewRoute)]),
-  update_position(EvMan, Sup, hd(OldRoute), hd(NewRoute)),
+  update_position(EvMan, hd(OldRoute), hd(NewRoute)),
   check_positon_type(EvMan, current_position(NewRoute)),
   {noreply, State#internal{route = NewRoute}};
 
 handle_cast(breakdown, State) ->
-  io:format("Mechanical failure"),
+  io:format("Mechanical failure. Waiting for the tow truck..."),
   Sup = State#internal.supervisor,
   EvMan = State#internal.event_manager,
   notify(EvMan, #event{type = notification, name = vehicle_breakdown}),
   supervisor:terminate_child(Sup, component_sup),
   timer:sleep(?TOW_TRUCK_TIME),
-  update_position(EvMan, Sup, current_position(State#internal.route), []),
-  terminate("Mechanical failure.", State),
-  {noreply, State};
+  update_position(EvMan, current_position(State#internal.route), []),
+  {stop, "Mechanical failure", State};
 
 handle_cast(_, State) -> {noreply, State}.
 
@@ -194,10 +198,7 @@ startup_vehicle(Pos, State) ->
     _ ->
       EvMan = State#internal.event_manager,
       check_positon_type(EvMan, Pos),
-      update_position(State#internal.event_manager,
-                      node(),
-                      [],
-                      Pos), 
+      update_position(State#internal.event_manager, [], Pos), 
       true
   end.
 
@@ -243,11 +244,11 @@ next_position([_]) -> {warning, route_completed}.
 current_position([]) -> [];
 current_position(Route) -> hd(Route).
 
-update_position(Pid, VehicleNode, OldPos, NewPos) ->
+update_position(Pid, OldPos, NewPos) ->
   notify(Pid, 
         #event{type = notification,
               name = position_changed,
-              content = {VehicleNode, OldPos, NewPos}
+              content = {OldPos, NewPos}
         }).
 
 %% Generic async event notification.

@@ -13,6 +13,7 @@
 init([Pid]) -> 
   {ok, Pid}.
 
+%% If vehicle finished the crossing
 handle_event(#event
   { type = notification
   , name = position_type
@@ -21,6 +22,7 @@ handle_event(#event
   gen_statem:cast( Pid, crossing_complete ),
   {ok, Pid};
 
+%% If an internal mechanical failure is detected
 handle_event(#event{type = notification, name = vehicle_breakdown}, Pid) ->
   gen_statem:cast( Pid, mechanical_failure ),
   {ok, Pid};

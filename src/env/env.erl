@@ -3,14 +3,16 @@
 
 -export([start/0, start/1, start_link/0, start_link/1, stop/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3]).
--export([ is_position_free/1, occupy_position/2, release_position/1
-        , get_participants/0, get_crossing_participants/0
-        , get_position_type/1, get_route/2, terminate/2
+-export([ is_position_free/1, update_position/3, get_participants/0
+        , get_crossing_participants/0, get_position_type/1, get_route/2
+        , get_start_positions/0, get_finish_positions/0, get_entrance_number/0
+        , terminate/2
         ]).
 
 -record(state,
   { ins = []
   , outs = []
+  , internal = []
   , start = []
   , finish = []
   , graph
@@ -27,6 +29,8 @@
 
 -define(CONF_DIR, "conf/").
 -define(INTERSECTION_CONF_FILE, "intersection.conf").
+
+-define(TOW_TRUCK_TIME, 30000).
 
 %%% -------------------------- Interface Functions ------------------------- %%%
 
@@ -56,11 +60,8 @@ stop() ->
 is_position_free(Pos) ->
   gen_server:call(?MODULE, {is_position_free, Pos}).
 
-occupy_position(Vehicle, Pos) ->
-  gen_server:call(?MODULE, {occupy_position, Vehicle, Pos}).
-
-release_position(Pos) ->
-  gen_server:call(?MODULE, {release_position, Pos}).
+update_position(Vehicle, OldPos, NewEnv) ->
+  gen_server:call(?MODULE, {update_position, {Vehicle, OldPos, NewEnv}}).
 
 get_position_type(Pos) ->
   gen_server:call(?MODULE, {position_type, Pos}).
@@ -73,6 +74,15 @@ get_participants() ->
 
 get_crossing_participants() ->
   gen_server:call(?MODULE, get_crossing_participants).
+
+get_start_positions() ->
+  gen_server:call(?MODULE, get_start_positions).
+
+get_finish_positions() ->
+  gen_server:call(?MODULE, get_finish_positions).
+
+get_entrance_number() ->
+  gen_server:call(?MODULE, get_entrance_number).
 
 %%% -------------------------- Callback Functions -------------------------- %%%
 init([ConfDir]) ->
@@ -89,15 +99,10 @@ init([ConfDir]) ->
 handle_call({is_position_free, Pos}, _From, Env) ->
   {reply, is_position_free(Pos, Env), Env};
 
-%% TODO: should be performed more checks? like if the two position are connected
-%%   by an edge.
-handle_call({occupy_position, Vehicle, Pos}, _From, Env) ->
-  NewEnv = add(Vehicle, Pos, Env),
-  {reply, ok, NewEnv};
-
-handle_call({release_position, Pos}, _From, Env) ->
-  NewEnv = release(Pos, Env),
-  {reply, ok, NewEnv};
+handle_call({update_position, {Vehicle, OldPos, NewPos}}, _From, Env) ->
+  NewEnv = release(OldPos, Env),
+  NewestEnv = add(Vehicle, NewPos, NewEnv),
+  {reply, ok, NewestEnv};
 
 handle_call({vehicle_at, Pos}, _From, Env) ->
   Result = case digraph:vertex(Env#state.graph, Pos) of
@@ -124,10 +129,21 @@ handle_call(get_participants, _From, Env) ->
 
 %% get_crossing_participants
 handle_call(get_crossing_participants, _From, Env) ->
-  Pos = lists:subtract( digraph:vertices( Env#state.graph ), Env#state.ins ),
+  Pos = Env#state.internal ++ Env#state.outs,
   Participants = get_participants_list( Env,  Pos ),
   {reply, Participants, Env};
 
+%% get_start_positions
+handle_call(get_start_positions, _From, Env) ->
+  {reply, Env#state.start, Env};
+
+%% get_finish_positions
+handle_call(get_finish_positions, _From, Env) ->
+  {reply, Env#state.finish, Env};
+
+%% get_entrance_number
+handle_call(get_entrance_number, _From, Env) ->
+  {reply, erlang:length( Env#state.ins ), Env};
 
 %% unexpected message
 handle_call(Msg, _From, Env) -> {reply, {unexpected_message, Msg}, Env}.
@@ -145,11 +161,13 @@ handle_cast({notify_when_free, {WaitingPid, Position, Ref}}, Env) ->
   end,
   {noreply, Env#state{waiting_list = NewWaitingList}};
 
-handle_cast({vehicle_down, VehiclePid}, Env) ->
-  [Pos] = dict:fetch(VehiclePid, Env#state.vehicle_list),
-  %% Add timeout.
-  NewEnv = release(Pos, Env),
-  {noreply, NewEnv};
+handle_cast({vehicle_down, Vehicle}, Env) ->
+  Position = case dict:find(Vehicle, Env#state.vehicle_list) of
+    {ok, [Pos]} -> Pos;
+    error -> []
+  end,
+  erlang:send_after(?TOW_TRUCK_TIME, self(), {cleanup_position, Position}),
+  {noreply, Env};
 
 handle_cast(stop, Env) -> {stop, normal, Env};
 
@@ -157,6 +175,10 @@ handle_cast(_Msg, Env) -> {noreply, Env}.
 
 
 %%% Handle info:
+
+handle_info({cleanup_position, Pos}, Env) ->
+  NewEnv = release(Pos, Env),
+  {noreply, NewEnv};
 
 handle_info(Msg, Env) ->
   io:format( "Unexpected message: ~p~n", [Msg] ),
@@ -173,8 +195,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%% Stop the environment process
 
-terminate(normal, _Env) -> ok.
-% terminate({error, Reason}, _Env) -> {error, Reason}.
+terminate(Reason, _Env) -> {ok, Reason}.
 
 %%% -------------------------- Private Functions --------------------------- %%%
 
@@ -203,10 +224,16 @@ add_nodes(Env, [Elem|Content]) ->
     {edge, _, _} -> add_nodes( Env, Content ); % ignore edges
     {V, Node} -> 
       Env1 = case V of
-        intersection_entrance -> Env#state{ ins  = Env#state.ins ++ [Node] };
-        intersection_exit -> Env#state{ outs = Env#state.outs ++ [Node] };
-        start -> Env#state{ start = Env#state.start ++ [Node] };
-        finish -> Env#state{ finish = Env#state.finish ++ [Node] };
+        intersection_entrance ->
+          Env#state{ ins  = Env#state.ins ++ [Node] };
+        intersection_exit ->
+          Env#state{ outs = Env#state.outs ++ [Node] };
+        intersection_internal -> 
+          Env#state{ internal = Env#state.internal ++ [Node] };
+        start ->
+          Env#state{ start = Env#state.start ++ [Node] };
+        finish ->
+          Env#state{ finish = Env#state.finish ++ [Node] };
         _ -> Env
       end,
       G = Env1#state.graph,
@@ -254,7 +281,11 @@ add(Pid, Pos, Env) ->
     {_, #vertex_info{vehicle = Pid}} -> 
       io:format("A vehicle is already in that position: ~p~n", [Pos]);
     {_, #vertex_info{type = Type}} -> 
-      digraph:add_vertex(Env#state.graph, Pos, #vertex_info{vehicle = Pid, type = Type});
+      digraph:add_vertex(
+        Env#state.graph,
+        Pos,
+        #vertex_info{vehicle = Pid, type = Type}
+      );
     _ -> 
       io:format("Unknown position: ~p~n", [Pos])
   end,
@@ -291,8 +322,11 @@ release_waiting_vehicle(Position, Waiting_list) ->
   end.
 
 notify_free_position(Value) ->
-  {VehiclePid, Ref} = Value,
-  gen_event:notify(VehiclePid, #event{type = notification, name = clear_to_move, content = Ref}).
+  {Requester, Ref} = Value,
+  gen_event:notify(
+    Requester, 
+    #event{type = notification, name = clear_to_move, content = Ref}
+  ).
 
 is_position_free(Pos, Env) ->
   case digraph:vertex( Env#state.graph, Pos ) of

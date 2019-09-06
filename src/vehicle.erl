@@ -1,7 +1,8 @@
 -module(vehicle).
 -behavior(application).
 
--export([start/2, stop/1, startup/0, initialize/2, set_testing_environment/1]).
+-export([ start/2, stop/1, startup/0, initialize/2, set_testing_environment/1
+        , cause_mechanical_failure/0]).
 
 -define(RECOGNITION_COMPONENT(ProbePid), 
   #component{name = "Default Recognition Component",
@@ -43,3 +44,6 @@ initialize(Route, EnvPid) ->
 
 set_testing_environment(EnvLocation) ->
   coordinator:set_testing_environment(EnvLocation).
+
+cause_mechanical_failure() ->
+  coordinator:cause_mechanical_failure().

@@ -61,12 +61,14 @@ handle_info({'DOWN', MonitorReference, process, Pid, Reason}, State) ->
   case Reason of
     normal -> io:format("Vehicle in front is down for normal reasons! ~n");
     _ ->
-      io:format("Vehicle in front has sw crashed! ~n"),
+      io:format("Vehicle in front has sw crashed! Waiting for the tow truck... ~n"),
       EvManPid = State#component.event_manager,
-      notify(EvManPid, #event{type = notification, name = vehicle_down, content = Pid})
+      {_, Vehicle} = Pid,
+      notify(EvManPid, #event{type = notification, name = vehicle_down, content = Vehicle})
   end,
   {noreply, State};
-  
+
+
 handle_info(Msg, State) ->
     io:format("Unknown msg: ~p~n", [Msg]),
     {noreply, State}.
@@ -94,10 +96,10 @@ begin_moving(Pos, State) ->
 %% Check what is the object in Position.
 verify_position(Position, Object, State) ->
   case Object of
-    {vehicle, Pid} -> 
-      io:format("A vehicle is in front: ~p ...~n", [Pid]),
-      Ref = erlang:monitor(process, Pid),
-      receive_position_update(Position, Ref, State);
+    {vehicle, VehicleInFront} -> 
+      io:format("A vehicle is in front: ~p ...~n", [VehicleInFront]),
+      MonitorRef = erlang:monitor(process, {vehicle_supervisor, VehicleInFront}),
+      receive_position_update(Position, MonitorRef, State);
     _ ->  
       io:format("Overtaking the object in front...~n"),
       move(State#component.event_manager)
@@ -110,11 +112,11 @@ receive_position_update(Position, Ref, State) ->
   gen_server:cast(ProbePid, {notify_when_free, {EvManPid, Position, Ref}}).
 
 %% Position update received, now handle the cases.
-position_update(Update, Ref, State) ->
+position_update(Update, MonitorRef, State) ->
   EvManPid = State#component.event_manager,
   case Update of 
     clear_to_move ->
-      erlang:demonitor(Ref),
+      erlang:demonitor(MonitorRef),
       move(EvManPid);
     _ ->
       io:format("Vehicle stuck...~n")

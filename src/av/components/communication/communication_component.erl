@@ -76,9 +76,9 @@ handle_cast({who_is_at, Position}, State) ->
          #event{type = notification, name = vehicle_at, content = {Position, Result}}),
   {noreply, State};
 
-handle_cast({vehicle_down, VehiclePid}, State) ->
+handle_cast({vehicle_down, Vehicle}, State) ->
   Pid = State#component.probe,
-  signal_vehicle_down(Pid, VehiclePid),
+  signal_vehicle_down(Pid, Vehicle),
   {noreply, State};
 
 handle_cast(_, State) ->
@@ -117,8 +117,8 @@ start_intersection_coordination(State) ->
 get_vehicle_at(Pid, Position) ->
   gen_server:call(Pid, {vehicle_at, Position}).
 
-signal_vehicle_down(Pid, VehiclePid) ->
-  gen_server:cast(Pid, {vehicle_down, VehiclePid}).
+signal_vehicle_down(Pid, Vehicle) ->
+  gen_server:cast(Pid, {vehicle_down, Vehicle}).
 
 register_event_handler(Pid, HandlerId) ->
   gen_event:add_handler(Pid, HandlerId, [self()]).

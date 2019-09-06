@@ -10,33 +10,37 @@ erl -sname env -pa ebin/
 2) Execute in env.
 
 application:start(environment).
-env:occupy_position(spawn(fun() -> timer:sleep(60000), env:release_position("R_5") end), "R_5").
+env:update_position(node(), [], "R_5").
+spawn(fun() -> timer:sleep(60000), env:update_position(self(), "R_5", []) end).
+
+THE ABOVE TWO LINES DON'T WORK AS EXPECTED: since the vehicle monitors {vehicle_supervisor, NodeName},
+the vehicle behind will treat this situation as a vehicle_down.
 
 3) QUICKLY execute in v3, v2, v1 respecting the order (timer in previous step set to 60s):
 	Make sure to modify the tuple {Name, Node} before !!
 
-Route = rpc:call('env@home-pc', env, get_route, ["R_4", "R_30"]).
+Route = rpc:call(env@antonio, env, get_route, ["R_4", "R_30"]).
 application:start(vehicle).
-vehicle:initialize(Route, {env, 'env@home-pc'}).
-vehicle:set_testing_environment({env, 'env@home-pc'}).
+vehicle:initialize(Route, {env, env@antonio}).
+vehicle:set_testing_environment({env, env@antonio}).
 vehicle:startup().
 
-Route = rpc:call('env@home-pc', env, get_route, ["R_2", "R_30"]).
+Route = rpc:call(env@antonio, env, get_route, ["R_2", "R_30"]).
 application:start(vehicle).
-vehicle:initialize(Route, {env, 'env@home-pc'}).
-vehicle:set_testing_environment({env, 'env@home-pc'}).
+vehicle:initialize(Route, {env, env@antonio}).
+vehicle:set_testing_environment({env, env@antonio}).
 vehicle:startup().
 
-Route = rpc:call('env@home-pc', env, get_route, ["R_1", "R_30"]).
+Route = rpc:call(env@antonio, env, get_route, ["R_1", "R_30"]).
 application:start(vehicle).
-vehicle:initialize(Route, {env, 'env@home-pc'}).
-vehicle:set_testing_environment({env, 'env@home-pc'}).
+vehicle:initialize(Route, {env, env@antonio}).
+vehicle:set_testing_environment({env, env@antonio}).
 vehicle:startup().
 
 4) Alternative: to simulate mechanical failure run after 3) in node v3:
 	Tow truck time is set to 40s for testing purposes, defined in coordinator.erl	
 
-gen_server:cast({coordinator, 'v3@home-pc'}, breakdown).
+gen_server:cast({coordinator, 'v3@lenora'}, breakdown).
 
 
 
