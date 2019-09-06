@@ -30,6 +30,8 @@
 -define(CONF_DIR, "conf/").
 -define(INTERSECTION_CONF_FILE, "intersection.conf").
 
+-define(TOW_TRUCK_TIME, 30000).
+
 %%% -------------------------- Interface Functions ------------------------- %%%
 
 %%% Functions 'start' and 'start_link' can be called both without parameters, or 
@@ -160,10 +162,12 @@ handle_cast({notify_when_free, {WaitingPid, Position, Ref}}, Env) ->
   {noreply, Env#state{waiting_list = NewWaitingList}};
 
 handle_cast({vehicle_down, Vehicle}, Env) ->
-  [Pos] = dict:fetch(Vehicle, Env#state.vehicle_list),
-  %% Add timeout.
-  NewEnv = release(Pos, Env),
-  {noreply, NewEnv};
+  Position = case dict:find(Vehicle, Env#state.vehicle_list) of
+    {ok, [Pos]} -> Pos;
+    error -> []
+  end,
+  erlang:send_after(?TOW_TRUCK_TIME, self(), {cleanup_position, Position}),
+  {noreply, Env};
 
 handle_cast(stop, Env) -> {stop, normal, Env};
 
@@ -171,6 +175,10 @@ handle_cast(_Msg, Env) -> {noreply, Env}.
 
 
 %%% Handle info:
+
+handle_info({cleanup_position, Pos}, Env) ->
+  NewEnv = release(Pos, Env),
+  {noreply, NewEnv};
 
 handle_info(Msg, Env) ->
   io:format( "Unexpected message: ~p~n", [Msg] ),

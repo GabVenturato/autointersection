@@ -13,25 +13,28 @@ application:start(environment).
 env:update_position(node(), [], "R_5").
 spawn(fun() -> timer:sleep(60000), env:update_position(self(), "R_5", []) end).
 
+THE ABOVE TWO LINES DON'T WORK AS EXPECTED: since the vehicle monitors {vehicle_supervisor, NodeName},
+the vehicle behind will treat this situation as a vehicle_down.
+
 3) QUICKLY execute in v3, v2, v1 respecting the order (timer in previous step set to 60s):
 	Make sure to modify the tuple {Name, Node} before !!
 
-Route = rpc:call('env@lenora', env, get_route, ["R_4", "R_30"]).
+Route = rpc:call(env@antonio, env, get_route, ["R_4", "R_30"]).
 application:start(vehicle).
-vehicle:initialize(Route, {env, 'env@lenora'}).
-vehicle:set_testing_environment({env, 'env@lenora'}).
+vehicle:initialize(Route, {env, env@antonio}).
+vehicle:set_testing_environment({env, env@antonio}).
 vehicle:startup().
 
-Route = rpc:call('env@lenora', env, get_route, ["R_2", "R_30"]).
+Route = rpc:call(env@antonio, env, get_route, ["R_2", "R_30"]).
 application:start(vehicle).
-vehicle:initialize(Route, {env, 'env@lenora'}).
-vehicle:set_testing_environment({env, 'env@lenora'}).
+vehicle:initialize(Route, {env, env@antonio}).
+vehicle:set_testing_environment({env, env@antonio}).
 vehicle:startup().
 
-Route = rpc:call('env@lenora', env, get_route, ["R_11", "R_30"]),
-application:start(vehicle),
-vehicle:initialize(Route, {env, 'env@lenora'}),
-vehicle:set_testing_environment({env, 'env@lenora'}),
+Route = rpc:call(env@antonio, env, get_route, ["R_1", "R_30"]).
+application:start(vehicle).
+vehicle:initialize(Route, {env, env@antonio}).
+vehicle:set_testing_environment({env, env@antonio}).
 vehicle:startup().
 
 4) Alternative: to simulate mechanical failure run after 3) in node v3:
