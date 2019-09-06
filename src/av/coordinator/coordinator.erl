@@ -164,8 +164,7 @@ handle_cast(breakdown, State) ->
   supervisor:terminate_child(Sup, component_sup),
   timer:sleep(?TOW_TRUCK_TIME),
   update_position(EvMan, current_position(State#internal.route), []),
-  terminate("Mechanical failure.", State),
-  {noreply, State};
+  {stop, "Mechanical failure", State};
 
 handle_cast(_, State) -> {noreply, State}.
 
