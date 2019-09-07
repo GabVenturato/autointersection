@@ -23,8 +23,6 @@
 % Include component record.
 -include("../../../../include/component.hrl").
 
--include("../../../../include/event.hrl").
-
 -define(INTERSECTION_SOLVING_MODULE, intersection_coordination).
 
 %% Action supervisor specification.
@@ -65,15 +63,19 @@ handle_cast({handle_position_type, Type}, State) ->
   case Type of
     intersection_entrance ->
       start_intersection_coordination(State);
-    _ -> io:format("Unknown type: ~p~n", [Type])
+    _ -> 
+      internal:a_log(State#component.event_manager,
+                     warn,
+                     ?MODULE,
+                     lists:concat(["Cannot handle position type: ", Type]))
   end,
   {noreply, State};
 
 handle_cast({who_is_at, Position}, State) ->
   Pid = State#component.probe,
   Result = get_vehicle_at(Pid, Position),
-  notify(State#component.event_manager, 
-         #event{type = notification, name = vehicle_at, content = {Position, Result}}),
+  internal:event(State#component.event_manager, 
+                 notification, vehicle_at, {Position, Result}),
   {noreply, State};
 
 handle_cast({vehicle_down, Vehicle}, State) ->
@@ -85,7 +87,10 @@ handle_cast(_, State) ->
   {noreply, State}.
 
 handle_info(Msg, State) ->
-  io:format("Unknown msg: ~p~n", [Msg]),
+  internal:a_log(State#component.event_manager,
+                 warn,
+                 ?MODULE,
+                 lists:concat(["Unknown msg: ", Msg])),
   {noreply, State}.
 
 terminate(_Reason, State) ->
@@ -100,19 +105,11 @@ code_change(_OldVsn, State, _Extra) ->
 %% Start the process that is in charge of solving the intersection.
 start_intersection_coordination(State) ->
   %% Spawn new process to begin coordination.
-  io:format("Solving intersection... ~n"),
-  SensorPid = State#component.probe,
-  EvManPid = State#component.event_manager,
+  Probe = State#component.probe,
+  EvMan = State#component.event_manager,
+  internal:log(EvMan, "Solving intersection..."),
   {ok, SupPid} = supervisor:start_child(State#component.supervisor, ?SUP_SPEC([])),
-  supervisor:start_child(SupPid, ?INTER_CROSS_SPEC([SensorPid, EvManPid])).
-
-  %% Temporary for testing purposes:
-  % io:format("Solving intersection... ~n"),
-  % Number = rand:uniform(1800),
-  % timer:sleep(7000-Number),
-  % EvManPid = State#component.event_manager,
-  % notify(EvManPid, 
-  %        #event{type = notification, name = position_type, content = normal}).
+  supervisor:start_child(SupPid, ?INTER_CROSS_SPEC([Probe, EvMan])).
 
 get_vehicle_at(Pid, Position) ->
   gen_server:call(Pid, {vehicle_at, Position}).
@@ -125,7 +122,3 @@ register_event_handler(Pid, HandlerId) ->
 
 remove_event_handler(Pid, HandlerId) ->
   gen_event:delete_handler(Pid, HandlerId,[]).
-
-%% Generic synchronous event notification.
-notify(Pid, Msg) ->
-  gen_event:notify(Pid, Msg).

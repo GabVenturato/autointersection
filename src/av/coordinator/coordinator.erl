@@ -49,12 +49,11 @@
 -define(TOW_TRUCK_TIME, 40000).
     
 -include("../../../include/component.hrl").
--include("../../../include/event.hrl").
 
--record(internal, {supervisor,
-                   event_manager,
-                   event_handlers = [],
-                   route = []}).
+-record(state, {supervisor,
+                event_manager,
+                event_handlers = [],
+                route = []}).
 
 %%% -------------------------- Interface Functions ------------------------- %%%
 
@@ -65,8 +64,8 @@ initialize(Route, Components) ->
   ?MODULE ! {update_route, Route},
   ?MODULE ! {initialize_vehicle, Components}.
 
-set_testing_environment(EnvLocation) ->
-  ?MODULE ! {start_environment_listener, EnvLocation}.
+set_testing_environment(TestingComponent) ->
+  ?MODULE ! {start_env_testing_component, TestingComponent}.
 
 cause_mechanical_failure() ->
   gen_server:cast(?MODULE, breakdown).
@@ -87,90 +86,97 @@ start_link(Sup, Route, Components) ->
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([Sup]) ->
-  {ok, #internal{supervisor = Sup}};
+  {ok, #state{supervisor = Sup}};
 
 init([Sup, Route, Components]) ->
   self() ! {update_route, Route},
   self() ! {initialize_vehicle, Sup, Components},
-  {ok, #internal{supervisor = Sup}}.
+  {ok, #state{supervisor = Sup}}.
 
 handle_info(startup, State) ->
-  io:format("Startup msg received. ~n"),
-  CurrentPosition = current_position(State#internal.route),
+  internal:log(State#state.event_manager, "Startup msg received."),
+  CurrentPosition = current_position(State#state.route),
   startup_vehicle(CurrentPosition, State),
   {noreply, State};
 
 %% Start all necessary components and event handlers.
 %% Necessary, see page 292 Learn You Some Erlang for Great Good!
 handle_info({initialize_vehicle, Components}, State) ->
-  Sup = State#internal.supervisor,
+  Sup = State#state.supervisor,
   {ok, EvMan} = supervisor:start_child(Sup, ?EVENT_MAN_SPEC([])),
   {ok, SupPid} = supervisor:start_child(Sup, ?COMP_SUP_SPEC([])),
-  EventHandlers = State#internal.event_handlers ++ 
+  EventHandlers = State#state.event_handlers ++ 
                   register_event_handler(EvMan, ?EVENT_HANDLER_IDS),
   start_components(SupPid, Components, EvMan),
-  {noreply, State#internal{event_manager = EvMan,
+  {noreply, State#state{event_manager = EvMan,
                            event_handlers = EventHandlers}};
 
 handle_info({update_route, Route}, State) ->
-  {noreply, State#internal{route = Route}};
+  {noreply, State#state{route = Route}};
 
-handle_info({start_environment_listener, NodeName}, State) ->
-  EvManPid = State#internal.event_manager,
-  gen_event:add_handler(EvManPid, ?ENV_HANDLER, [NodeName]),
+handle_info({start_env_testing_component, Component}, State) ->
+  Sup = State#state.supervisor,
+  EvMan = State#state.event_manager,
+  start_component(Sup, Component, EvMan),
   {noreply, State};
 
 handle_info(Msg, State) ->
-  io:format("Unknown msg: ~p~n", [Msg]),
+  internal:a_log(State#state.event_manager,
+               warn,
+               ?MODULE,
+               lists:concat(["Unknown msg: ", Msg])),
   {noreply, State}.
 
 %% Deal with position type.
 handle_call({position_type, Type}, _From, State) ->
-  Pid = State#internal.event_manager,
+  Pid = State#state.event_manager,
   case Type of
     normal -> 
-      advance(Pid, State#internal.route);
+      advance(Pid, State#state.route);
     intersection_entrance -> 
       resolve(Pid, Type);
     intersection_internal ->
-      advance(Pid, State#internal.route); 
+      advance(Pid, State#state.route); 
     intersection_exit ->
-      advance(Pid, State#internal.route);
+      advance(Pid, State#state.route);
     start ->
-      advance(Pid, State#internal.route);
+      advance(Pid, State#state.route);
     finish -> 
-      update_position(Pid, current_position(State#internal.route), []), 
-      io:format("Arrived at destination. ~n");
+      update_position(Pid, current_position(State#state.route), []), 
+      internal:log(Pid, "Arrived at destination.");
     _ -> 
-      io:format("Cannot handle such position type! ~p~n", [Type])
+      internal:a_log(State#state.event_manager,
+                     warn,
+                     ?MODULE,
+                     lists:concat(["Unknown position type: ", Type]))
   end,
   {reply, ack, State}.
 
 %% Moved message received, clear to move forward in the path.
 handle_cast(moved, State) ->
-  EvMan = State#internal.event_manager,
-  OldRoute = State#internal.route,
+  EvMan = State#state.event_manager,
+  OldRoute = State#state.route,
   NewRoute = make_a_step(OldRoute),
-  io:format("Vehicle moved in position: ~p~n", [hd(NewRoute)]),
+  internal:log(EvMan, lists:concat(["Vehicle moved in position: ", hd(NewRoute)])),
   update_position(EvMan, hd(OldRoute), hd(NewRoute)),
   check_positon_type(EvMan, current_position(NewRoute)),
-  {noreply, State#internal{route = NewRoute}};
+  {noreply, State#state{route = NewRoute}};
 
 handle_cast(breakdown, State) ->
-  io:format("Mechanical failure. Waiting for the tow truck..."),
-  Sup = State#internal.supervisor,
-  EvMan = State#internal.event_manager,
-  notify(EvMan, #event{type = notification, name = vehicle_breakdown}),
+  Sup = State#state.supervisor,
+  EvMan = State#state.event_manager,
+  internal:log(State#state.event_manager, "Mechanical failure. Waiting for the tow truck..."),
+  internal:event(EvMan, notification, vehicle_breakdown, []),
   supervisor:terminate_child(Sup, component_sup),
   timer:sleep(?TOW_TRUCK_TIME),
-  update_position(EvMan, current_position(State#internal.route), []),
+  update_position(EvMan, current_position(State#state.route), []),
   {stop, "Mechanical failure", State};
 
 handle_cast(_, State) -> {noreply, State}.
 
 terminate(_Reason, State) ->
-  EvMan = State#internal.event_manager,
-  HandlerIds = State#internal.event_handlers,
+  EvMan = State#state.event_manager,
+  HandlerIds = State#state.event_handlers,
   remove_event_handler(EvMan, HandlerIds),
   ok.
 
@@ -196,9 +202,9 @@ startup_vehicle(Pos, State) ->
   case Pos of
     [] -> false;
     _ ->
-      EvMan = State#internal.event_manager,
+      EvMan = State#state.event_manager,
       check_positon_type(EvMan, Pos),
-      update_position(State#internal.event_manager, [], Pos), 
+      update_position(State#state.event_manager, [], Pos), 
       true
   end.
 
@@ -219,16 +225,16 @@ advance(Pid, Route) ->
   case Next of
     {ok, Position} -> 
       timer:sleep(2000), % TODO: remove this line in production
-      notify(Pid, #event{type = request, name = move, content = Position});
-    _ -> io:format("Vehicle has arrived at destination. ~n")
+      internal:event(Pid, request, move, Position);
+    _ -> internal:log(Pid, "Vehicle has arrived at destination. ~n")
   end.
 
 check_positon_type(Pid, Position) ->
-  notify(Pid, #event{type = request, name = position_type, content = Position}).
+  internal:event(Pid, request, position_type, Position).
 
 %% Resolve a node situation (free, stop), only stop needs to be resolved.
 resolve(Pid, Type) ->
-  notify(Pid, #event{type = request, name = handle_position_type, content = Type}).
+  internal:event(Pid, request, handle_position_type, Type).
 
 %% Make a step in the route.
 make_a_step(Route) ->
@@ -245,13 +251,5 @@ current_position([]) -> [];
 current_position(Route) -> hd(Route).
 
 update_position(Pid, OldPos, NewPos) ->
-  notify(Pid, 
-        #event{type = notification,
-              name = position_changed,
-              content = {OldPos, NewPos}
-        }).
-
-%% Generic async event notification.
-notify(Pid, Event) ->
-  gen_event:notify(Pid, Event).
+  internal:event(Pid, notification, position_changed, {OldPos, NewPos}).
 

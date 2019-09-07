@@ -278,14 +278,14 @@ add(_, [], Env) ->
 
 add(Pid, Pos, Env) ->
   case digraph:vertex(Env#state.graph, Pos) of
+    {_, #vertex_info{vehicle = undefined, type = Type}} -> 
+        digraph:add_vertex(
+          Env#state.graph,
+          Pos,
+          #vertex_info{vehicle = Pid, type = Type}
+        );
     {_, #vertex_info{vehicle = Pid}} -> 
       io:format("A vehicle is already in that position: ~p~n", [Pos]);
-    {_, #vertex_info{type = Type}} -> 
-      digraph:add_vertex(
-        Env#state.graph,
-        Pos,
-        #vertex_info{vehicle = Pid, type = Type}
-      );
     _ -> 
       io:format("Unknown position: ~p~n", [Pos])
   end,

@@ -58,19 +58,23 @@ handle_cast(_, State) -> {noreply, State}.
 %%  The monitored vehicle went down, notify others about it.
 handle_info({'DOWN', MonitorReference, process, Pid, Reason}, State) ->
   erlang:demonitor(MonitorReference),
+  EvMan = State#component.event_manager,
   case Reason of
-    normal -> io:format("Vehicle in front is down for normal reasons! ~n");
+    normal ->
+      internal:log(EvMan, "Vehicle in front is down for normal reasons!");
     _ ->
-      io:format("Vehicle in front has sw crashed! Waiting for the tow truck... ~n"),
-      EvManPid = State#component.event_manager,
+      internal:log(EvMan, "Vehicle in front has sw crashed! Waiting for the tow truck..."),
       {_, Vehicle} = Pid,
-      notify(EvManPid, #event{type = notification, name = vehicle_down, content = Vehicle})
+      internal:event(EvMan, notification, vehicle_down, Vehicle)
   end,
   {noreply, State};
 
 
 handle_info(Msg, State) ->
-    io:format("Unknown msg: ~p~n", [Msg]),
+    internal:a_log(State#component.event_manager,
+                   warn,
+                   ?MODULE,
+                   lists:concat(["Unknown msg: ", Msg])),
     {noreply, State}.
 
 terminate(_Reason, State) ->
@@ -89,45 +93,49 @@ begin_moving(Pos, State) ->
     true ->
       move(Pid);
     false ->
-      io:format("Waiting for next position: ~p ...~n", [Pos]),
+      internal:log(Pid, lists:concat(["Waiting for next position: ", Pos])),
       who_is_at(Pid, Pos)
   end.
 
 %% Check what is the object in Position.
 verify_position(Position, Object, State) ->
+  EvMan = State#component.event_manager,
   case Object of
     {vehicle, VehicleInFront} -> 
-      io:format("A vehicle is in front: ~p ...~n", [VehicleInFront]),
+      internal:log(EvMan, lists:concat(["A vehicle is in front: ", VehicleInFront])),
       MonitorRef = erlang:monitor(process, {vehicle_supervisor, VehicleInFront}),
       receive_position_update(Position, MonitorRef, State);
     _ ->  
-      io:format("Overtaking the object in front...~n"),
-      move(State#component.event_manager)
+      internal:log(EvMan, "Overtaking the object in front..."),
+      move(EvMan)
   end.
 
 %% If we have to wait, receive updates from the sensor.
 receive_position_update(Position, Ref, State) ->
-  EvManPid = State#component.event_manager,
+  EvMan = State#component.event_manager,
   ProbePid = State#component.probe,
-  gen_server:cast(ProbePid, {notify_when_free, {EvManPid, Position, Ref}}).
+  gen_server:cast(ProbePid, {notify_when_free, {EvMan, Position, Ref}}).
 
 %% Position update received, now handle the cases.
 position_update(Update, MonitorRef, State) ->
-  EvManPid = State#component.event_manager,
+  EvMan = State#component.event_manager,
   case Update of 
     clear_to_move ->
       erlang:demonitor(MonitorRef),
-      move(EvManPid);
+      move(EvMan);
     _ ->
-      io:format("Vehicle stuck...~n")
+      internal:a_log(State#component.event_manager,
+                     warn,
+                     ?MODULE,
+                     lists:concat(["Vehicle stuck because of: ", Update]))
   end.
 
 %% Move to position.
 move(Pid) ->
-  notify(Pid, #event{type = notification, name = moved}).
+  internal:event(Pid, notification, moved, []).
 
 who_is_at(Pid, Pos) ->
-  notify(Pid, #event{type = request, name = who_is_at, content = Pos}).
+  internal:event(Pid, request, who_is_at, Pos).
 
 %% Check with the sensor if the position is free.
 is_position_free(ProbePid, Position) ->
@@ -138,7 +146,3 @@ register_event_handler(Pid, HandlerId) ->
 
 remove_event_handler(Pid, HandlerId) ->
   gen_event:delete_handler(Pid, HandlerId, []).
-
-%% Generic async event notification.
-notify(Pid, Msg) ->
-  gen_event:notify(Pid, Msg).
