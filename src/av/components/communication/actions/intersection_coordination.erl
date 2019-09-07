@@ -60,7 +60,12 @@ init([Probe, EvMan]) ->
 
   case AllParticipants of
     [] -> % If there are no participants, I'm the leader and start crossing
-      io:format("No participants, I'm the leader!~n"),
+      internal:a_log( 
+        Data#cross.ev_man,
+        info,
+        "Intersection coordination",
+        "No participants, I'm the leader!"
+      ),
       internal:event( Data#cross.ev_man, notification, position_type, normal ),
       {ok, crossing, Data#cross{ role = leader }};
     _  -> % otherwise ask who is the leader
@@ -83,7 +88,12 @@ terminate(Reason, _State, Data) ->
 
 %% Timout need_election expired: an election is needed.
 ready({timeout, need_election}, need_election, Data) ->
-  io:format( "Timeout expired, election needed.~n" ),
+  internal:a_log( 
+    Data#cross.ev_man,
+    debug,
+    "Intersection coordination",
+    "Timeout expired, election needed."
+  ),
   cast_vehicles( 
     participants( Data ),
     {election, ?SELF_REF, get_my_id( Data )}
@@ -98,7 +108,12 @@ ready({timeout, need_election}, need_election, Data) ->
 %% New leader received (when a candidate becomes the new leader or if joining.
 %%  when someone just winned an election)
 ready(cast, {coordinator, {_, Node} = L}, Data) ->
-  io:format( "Found leader: ~p~n", [L] ),
+  internal:a_log( 
+    Data#cross.ev_man,
+    info,
+    "Intersection coordination",
+    lists:concat( ["Found leader: ", Node] )
+  ),
   MonitorRef = erlang:monitor( process, {?SUP_MODULE, Node} ),
   { keep_state
   , Data#cross{ leader = L, monitor_ref = MonitorRef }
@@ -118,7 +133,12 @@ ready(cast, {election, _From, _Id}, Data) ->
 
 %% Received a promotion message. I am going to be the new leader.
 ready(cast, promotion, Data) ->
-  io:format( "Promotion received. I'm the new leader.~n" ),
+  internal:a_log( 
+    Data#cross.ev_man,
+    info,
+    "Intersection coordination",
+    "Promotion received. I'm the new leader."
+  ),
   cast_vehicles( participants( Data ), {coordinator, ?SELF_REF} ),
   internal:event( Data#cross.ev_man, notification, position_type, normal ),
   { next_state
@@ -142,7 +162,12 @@ ready(cast, promotion, Data) ->
 
 %% Election message was sent, but no one answered, so I am the leader.
 election({timeout, election_expired}, election_expired, Data) ->
-  io:format( "No one answered my election message. I'm the leader.~n" ),
+  internal:a_log( 
+    Data#cross.ev_man,
+    debug,
+    "Intersection coordination",
+    "No one answered my election message. I'm the leader."
+  ),
   cast_vehicles( participants( Data ), {coordinator, ?SELF_REF} ),
   internal:event( Data#cross.ev_man, notification, position_type, normal ),
   { next_state
@@ -155,7 +180,12 @@ election({timeout, election_expired}, election_expired, Data) ->
 
 %% Expected to receive coordinator message but none arrived, so do new election.
 election({timeout, answer_expired}, answer_expired, Data) ->
-  io:format( "Answer expired, election needed.~n" ),
+  internal:a_log( 
+    Data#cross.ev_man,
+    debug,
+    "Intersection coordination",
+    "Answer expired, election needed."
+  ),
   cast_vehicles(
     participants( Data ),
     {election, ?SELF_REF, get_my_id( Data )}
@@ -167,12 +197,17 @@ election({timeout, answer_expired}, answer_expired, Data) ->
 
 %% Election message received: forward the election only if myID > receivedID.
 election(cast, {election, From, Id}, Data) ->
-  io:format( "Election message received." ),
+  LogMsg = "Election message received.",
   MyId = get_my_id( Data ),
   Gt = gt_id( MyId, Id ),
   case Gt of
     true -> 
-      io:format( " Forward election.~n" ),
+      internal:a_log( 
+        Data#cross.ev_man,
+        debug,
+        "Intersection coordination",
+        LogMsg ++ " Forward election."
+      ),
       gen_statem:cast( From, answer ),
       cast_vehicles( 
         participants( Data ),
@@ -183,7 +218,12 @@ election(cast, {election, From, Id}, Data) ->
         ]
       };
     _    ->
-      io:format( " Not forward election.~n" ),
+      internal:a_log( 
+        Data#cross.ev_man,
+        debug,
+        "Intersection coordination",
+        LogMsg ++ " Not forward election."
+      ),
       { keep_state_and_data
       , [ {{timeout, answer_expired}, ?TIMEOUT_ANSWER, answer_expired}
         ]
@@ -191,8 +231,13 @@ election(cast, {election, From, Id}, Data) ->
   end;
 
 %% Answer message received: I am not the one with the greatest ID.
-election(cast, answer, _Data) ->
-  io:format( "Received answer. Wait for coordinator message.~n" ),
+election(cast, answer, Data) ->
+  internal:a_log( 
+    Data#cross.ev_man,
+    debug,
+    "Intersection coordination",
+    "Received answer. Wait for coordinator message."
+  ),
   { keep_state_and_data
   , [ {{timeout, election_expired}, infinity, undefined}
     , {{timeout, answer_expired}, ?TIMEOUT_ANSWER, answer_expired}
@@ -202,7 +247,12 @@ election(cast, answer, _Data) ->
 %% Coordinator message received. Leader is elected, monitor it and conclude 
 %%  the election algorithm.
 election(cast, {coordinator, {_, Node} = L}, Data) ->
-  io:format( "Found coordinator: ~p~n", [L] ),
+  internal:a_log( 
+    Data#cross.ev_man,
+    info,
+    "Intersection coordination",
+    lists:concat( ["Election complete! Found leader: ", Node] )
+  ),
   MonitorRef = erlang:monitor( process, {?SUP_MODULE, Node} ),
   { next_state
   , ready
@@ -227,9 +277,14 @@ election({timeout, need_election}, need_election, _Data) ->
 %% I have completed the crossing: notify all participants and promote the
 %%  candidate.
 crossing(cast, crossing_complete, Data) ->
-  io:format( 
-    "Crossing complete! Pass the lead to ~p~n", 
-    [Data#cross.candidate] 
+  internal:a_log( 
+    Data#cross.ev_man,
+    debug,
+    "Intersection coordination",
+    lists:concat(
+      [ "Crossing complete! Pass the lead to "
+      , Data#cross.candidate]
+    )
   ),
   cast_vehicles( participants( Data ), crossed ),
   gen_statem:cast( Data#cross.candidate, promotion ),
@@ -245,9 +300,14 @@ crossing(cast, {whos_leader, From}, Data) ->
 %% I have a mechanical failure: pretend to have crossed and promote the 
 %%  candidate to new leader. Further details in handle_common below.
 crossing(cast, mechanical_failure, Data) ->
-  io:format( 
-    "Mechanical failure detected. Pass the lead to ~p~n", 
-    [Data#cross.candidate] 
+  internal:a_log( 
+    Data#cross.ev_man,
+    debug,
+    "Intersection coordination",
+    lists:concat(
+      [ "Mechanical failure detected. Pass the lead to "
+      , Data#cross.candidate]
+    )
   ),
   cast_vehicles( participants( Data ), crossed ), % pretend to have crossed
   gen_statem:cast( Data#cross.candidate, promotion ),
@@ -258,8 +318,13 @@ crossing(cast, {election, _From, _Id}, Data) ->
   cast_vehicles( participants( Data ), {coordinator, ?SELF_REF} ),
   keep_state_and_data;
 
-crossing(cast, Msg, _Data) ->
-  io:format( "Ignoring message: ~p~n", [Msg] ),
+crossing(cast, Msg, Data) ->
+  internal:a_log( 
+    Data#cross.ev_man,
+    debug,
+    "Intersection coordination",
+    lists:concat( ["Ignoring message: ", Msg] )
+  ),
   keep_state_and_data.
 
 
@@ -289,7 +354,12 @@ handle_common(cast, crossed, #cross{wait_counter = Wait} = Data) ->
 handle_common(info, {'DOWN', Reference, process, Object, _Info}, Data) ->
   if
     Reference == Data#cross.monitor_ref ->
-      io:format( "Leader ~p down! Election needed!~n", [Object] ),
+      internal:a_log( 
+        Data#cross.ev_man,
+        debug,
+        "Intersection coordination",
+        lists:concat( ["Leader ", Object, " down! Election needed!"] )
+      ),
       cast_vehicles( 
         participants( Data ),
         {election, ?SELF_REF, get_my_id( Data )}
@@ -309,18 +379,32 @@ handle_common(info, {'DOWN', Reference, process, Object, _Info}, Data) ->
 %%  neet_election timer, so if they don't receive the coordinator message from
 %%  the new leader (actual candiate), they start a new election.
 handle_common(cast, mechanical_failure, Data) ->
-  io:format( "Mechanical failure detected." ),
   if 
     Data#cross.role == leader ->
-      io:format( " Pass the lead to ~p~n", [Data#cross.candidate] ),
+      internal:a_log( 
+        Data#cross.ev_man,
+        debug,
+        "Intersection coordination",
+        lists:concat( 
+          [ "Mechanical failure detected. "
+          , "Pass the lead to "
+          , Data#cross.candidate
+          ]
+        )
+      ),
       cast_vehicles( participants( Data ), crossed ), % pretend to have crossed
       gen_statem:cast( Data#cross.candidate, promotion );
-    true -> io:format( "~n" ), nothing
+    true -> nothing
   end,
   {stop, normal};
 
-handle_common(cast, Msg, _Data) ->
-  io:format( "Unexpected message: ~p~n", [Msg] ),
+handle_common(cast, Msg, Data) ->
+  internal:a_log( 
+    Data#cross.ev_man,
+    debug,
+    "Intersection coordination",
+    lists:concat( ["Unexpected message: ", Msg] )
+  ),
   keep_state_and_data.
 
 
