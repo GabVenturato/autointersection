@@ -1,3 +1,7 @@
+{'include/*', [debug_info, 
+           {i, "include/"},
+           {outdir, "ebin"}]}.
+
 {'src/*', [debug_info, 
            {i, "include/"},
            {outdir, "ebin"}]}.
@@ -25,6 +29,14 @@
 {'src/av/components/motion/*', [debug_info, 
                                 {i, "include/"},
                                 {outdir, "ebin"}]}.
+
+{'src/av/components/logging/*', [debug_info, 
+                                 {i, "include/"},
+                                 {outdir, "ebin"}]}.
+
+{'src/av/components/env_testing/*', [debug_info, 
+                                     {i, "include/"},
+                                     {outdir, "ebin"}]}.
 
 {'src/av/components/recognition/*', [debug_info, 
                                      {i, "include/"},
