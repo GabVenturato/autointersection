@@ -94,7 +94,16 @@ init([Sup, Route, Components]) ->
   {ok, #state{supervisor = Sup}}.
 
 handle_info(startup, State) ->
-  internal:log(State#state.event_manager, "Startup msg received."),
+  internal:log(
+    State#state.event_manager, 
+    lists:concat(
+      [ "Vehicle startup! Starting from "
+      , erlang:hd(State#state.route)
+      , " and directed to "
+      , lists:last(State#state.route)
+      ]
+    )
+  ),
   CurrentPosition = current_position(State#state.route),
   startup_vehicle(CurrentPosition, State),
   {noreply, State};

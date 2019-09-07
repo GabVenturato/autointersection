@@ -277,13 +277,18 @@ election({timeout, need_election}, need_election, _Data) ->
 %% I have completed the crossing: notify all participants and promote the
 %%  candidate.
 crossing(cast, crossing_complete, Data) ->
+  Candidate = case Data#cross.candidate of
+    {_, Node} -> Node;
+    _ -> null
+  end,
   internal:a_log( 
     Data#cross.ev_man,
     debug,
     "Intersection coordination",
     lists:concat(
       [ "Crossing complete! Pass the lead to "
-      , Data#cross.candidate]
+      , Candidate
+      ]
     )
   ),
   cast_vehicles( participants( Data ), crossed ),
@@ -300,13 +305,18 @@ crossing(cast, {whos_leader, From}, Data) ->
 %% I have a mechanical failure: pretend to have crossed and promote the 
 %%  candidate to new leader. Further details in handle_common below.
 crossing(cast, mechanical_failure, Data) ->
+  Candidate = case Data#cross.candidate of
+    {_, Node} -> Node;
+    _ -> null
+  end,
   internal:a_log( 
     Data#cross.ev_man,
     debug,
     "Intersection coordination",
     lists:concat(
       [ "Mechanical failure detected. Pass the lead to "
-      , Data#cross.candidate]
+      , Candidate
+      ]
     )
   ),
   cast_vehicles( participants( Data ), crossed ), % pretend to have crossed
@@ -381,6 +391,10 @@ handle_common(info, {'DOWN', Reference, process, Object, _Info}, Data) ->
 handle_common(cast, mechanical_failure, Data) ->
   if 
     Data#cross.role == leader ->
+      Candidate = case Data#cross.candidate of
+        {_, Node} -> Node;
+        _ -> null
+      end,
       internal:a_log( 
         Data#cross.ev_man,
         debug,
@@ -388,7 +402,7 @@ handle_common(cast, mechanical_failure, Data) ->
         lists:concat( 
           [ "Mechanical failure detected. "
           , "Pass the lead to "
-          , Data#cross.candidate
+          , Candidate
           ]
         )
       ),
