@@ -12,8 +12,8 @@
 init([Pid]) -> 
   {ok, Pid}.
 
-handle_event(#event{type = {log, Type}, name = Tag, content = Msg}, Pid) ->
-  gen_server:call(Pid, {Type, Tag, Msg}),
+handle_event(#event{type = {log, Level}, name = Tag, content = Msg}, Pid) ->
+  gen_server:call(Pid, {Level, Tag, Msg}),
   {ok, Pid};
 
 handle_event(_, State) -> {ok, State}.

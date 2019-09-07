@@ -33,11 +33,33 @@ start_link(CompDetails) ->
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([CompDetails]) ->
-  register_event_handler(CompDetails#component.event_manager, ?EVENT_HANDLER_ID),
-  {ok, CompDetails#component{handler = ?EVENT_HANDLER_ID}}.
+  register_event_handler(
+    CompDetails#component.event_manager, 
+    ?EVENT_HANDLER_ID
+  ),
+  file:make_dir(log),
+  {ok, FP} = file:open( "log/" ++ atom_to_list( node() ) ++ ".log", [write] ),
+  {ok, CompDetails#component{handler = ?EVENT_HANDLER_ID, probe = FP}}.
 
-handle_call({Type, Tag, Msg}, _From, State) ->
-  io:format("~p: ~p: --- ~p --- ~n", [string:uppercase(atom_to_list(Type)), Tag, Msg]),
+%% Logs of type "debug" are saved only in the log file
+handle_call({debug, Tag, Msg}, _From, State) ->
+  io:format( 
+    State#component.probe,
+    "[~p] ~p: ~p: --- ~p --- ~n",
+    [node(), string:uppercase( atom_to_list( internal ) ), Tag, Msg]
+  ),
+  {reply, ok, State};
+
+handle_call({Level, Tag, Msg}, _From, State) ->
+  io:format( 
+    State#component.probe,
+    "[~p] ~p: ~p: --- ~p --- ~n",
+    [node(), string:uppercase( atom_to_list( Level ) ), Tag, Msg]
+  ),
+  io:format( 
+    "[~p] ~p: ~p: --- ~p --- ~n",
+    [node(), string:uppercase( atom_to_list( Level ) ), Tag, Msg]
+  ),
   {reply, ok, State}.
 
 handle_cast(_, State) ->
@@ -52,6 +74,7 @@ handle_info(Msg, State) ->
 
 terminate(_Reason, State) ->
   remove_event_handler(State#component.event_manager, State#component.handler),
+  file:close( State#component.probe ),
   {ok, State}.
 
 code_change(_OldVsn, State, _Extra) ->

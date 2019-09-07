@@ -19,10 +19,9 @@
              module = motion_component,
              probe = ProbePid}).
 
--define(LOGGING_COMPONENT(ProbePid), 
+-define(LOGGING_COMPONENT(), 
   #component{name = "Default Logging Component",
-             module = logging_component,
-             probe = ProbePid}).
+             module = logging_component}).
 
 -define(ENV_TESTING_COMPONENT(EnvPid), 
   #component{name = "Environment Testing Component",
@@ -49,7 +48,7 @@ initialize(Route, EnvPid) ->
           ?RECOGNITION_COMPONENT(EnvPid),
           ?COMMUNICATION_COMPONENT(EnvPid),
           ?MOTION_COMPONENT(EnvPid),
-          ?LOGGING_COMPONENT(EnvPid)
+          ?LOGGING_COMPONENT()
         ]
       ).
 

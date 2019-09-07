@@ -16,8 +16,8 @@ a_log(Pid, [], Tag, Msg) ->
   Event = #event{type = {log, info}, name = Tag, content = Msg},
   notify(Pid, Event);
 
-a_log(Pid, Type, Tag, Msg) ->
-  Event = #event{type = {log, Type}, name = Tag, content = Msg},
+a_log(Pid, Level, Tag, Msg) ->
+  Event = #event{type = {log, Level}, name = Tag, content = Msg},
   notify(Pid, Event).
 
 event(Pid, Type, Name, []) ->

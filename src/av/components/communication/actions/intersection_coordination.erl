@@ -1,8 +1,6 @@
 -module(intersection_coordination).
 -behavior(gen_statem).
 
--include("../../../../../include/event.hrl").
-
 -export([start/2, start_link/2, callback_mode/0]).
 -export([init/1, terminate/3, handle_common/3]).
 -export([ready/3, election/3, crossing/3]).
@@ -63,10 +61,7 @@ init([Probe, EvMan]) ->
   case AllParticipants of
     [] -> % If there are no participants, I'm the leader and start crossing
       io:format("No participants, I'm the leader!~n"),
-      gen_event:notify(
-        Data#cross.ev_man, 
-        #event{type = notification, name = position_type, content = normal}
-      ),
+      internal:event( Data#cross.ev_man, notification, position_type, normal ),
       {ok, crossing, Data#cross{ role = leader }};
     _  -> % otherwise ask who is the leader
       cast_vehicles( AllParticipants, {whos_leader, ?SELF_REF} ),
@@ -125,10 +120,7 @@ ready(cast, {election, _From, _Id}, Data) ->
 ready(cast, promotion, Data) ->
   io:format( "Promotion received. I'm the new leader.~n" ),
   cast_vehicles( participants( Data ), {coordinator, ?SELF_REF} ),
-  gen_event:notify(
-    Data#cross.ev_man, 
-    #event{type = notification, name = position_type, content = normal}
-  ),
+  internal:event( Data#cross.ev_man, notification, position_type, normal ),
   { next_state
   , crossing
   , Data#cross
@@ -152,10 +144,7 @@ ready(cast, promotion, Data) ->
 election({timeout, election_expired}, election_expired, Data) ->
   io:format( "No one answered my election message. I'm the leader.~n" ),
   cast_vehicles( participants( Data ), {coordinator, ?SELF_REF} ),
-  gen_event:notify(
-    Data#cross.ev_man, 
-    #event{type = notification, name = position_type, content = normal}
-  ),
+  internal:event( Data#cross.ev_man, notification, position_type, normal ),
   { next_state
   , crossing
   , Data#cross
