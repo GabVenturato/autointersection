@@ -46,7 +46,8 @@
          worker,
          [Module]}).
 
--define(TOW_TRUCK_TIME, 40000).
+-define(TOW_TRUCK_TIME, 30000).
+-define(VEHICLE_DECELERATION, 2000).
     
 -include("../../../include/component.hrl").
 
@@ -174,7 +175,7 @@ handle_cast(moved, State) ->
 handle_cast(breakdown, State) ->
   Sup = State#state.supervisor,
   EvMan = State#state.event_manager,
-  internal:log(State#state.event_manager, "Mechanical failure. Waiting for the tow truck..."),
+  internal:log(State#state.event_manager, "Mechanical failure. Tow truck will take care of me."),
   internal:event(EvMan, notification, vehicle_breakdown, []),
   supervisor:terminate_child(Sup, component_sup),
   timer:sleep(?TOW_TRUCK_TIME),
@@ -233,7 +234,7 @@ advance(Pid, Route) ->
   Next = next_position(Route),
   case Next of
     {ok, Position} -> 
-      timer:sleep(2000), % TODO: remove this line in production
+      timer:sleep( ?VEHICLE_DECELERATION ),
       internal:event(Pid, request, move, Position);
     _ -> internal:log(Pid, "Vehicle has arrived at destination. ~n")
   end.
