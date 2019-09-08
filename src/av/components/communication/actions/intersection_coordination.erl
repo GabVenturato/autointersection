@@ -279,7 +279,7 @@ election({timeout, need_election}, need_election, _Data) ->
 crossing(cast, crossing_complete, Data) ->
   Candidate = case Data#cross.candidate of
     {_, Node} -> Node;
-    _ -> null
+    _ -> "no one"
   end,
   internal:a_log( 
     Data#cross.ev_man,
@@ -307,7 +307,7 @@ crossing(cast, {whos_leader, From}, Data) ->
 crossing(cast, mechanical_failure, Data) ->
   Candidate = case Data#cross.candidate of
     {_, Node} -> Node;
-    _ -> null
+    _ -> "no one"
   end,
   internal:a_log( 
     Data#cross.ev_man,
@@ -361,14 +361,14 @@ handle_common(cast, crossed, #cross{wait_counter = Wait} = Data) ->
   };
 
 %% If the current leader fails, do a new election.
-handle_common(info, {'DOWN', Reference, process, Object, _Info}, Data) ->
+handle_common(info, {'DOWN', Ref, process, {_, Node}, _Info}, Data) ->
   if
-    Reference == Data#cross.monitor_ref ->
+    Ref == Data#cross.monitor_ref ->
       internal:a_log( 
         Data#cross.ev_man,
         debug,
         "Intersection coordination",
-        lists:concat( ["Leader ", Object, " down! Election needed!"] )
+        lists:concat( ["Leader ", Node, " down! Election needed!"] )
       ),
       cast_vehicles( 
         participants( Data ),
@@ -393,7 +393,7 @@ handle_common(cast, mechanical_failure, Data) ->
     Data#cross.role == leader ->
       Candidate = case Data#cross.candidate of
         {_, Node} -> Node;
-        _ -> null
+        _ -> "no one"
       end,
       internal:a_log( 
         Data#cross.ev_man,
