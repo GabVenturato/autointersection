@@ -284,8 +284,9 @@ add(Pid, Pos, Env) ->
           Pos,
           #vertex_info{vehicle = Pid, type = Type}
         ),
-        NewVehicleList = dict:append(Pid, Pos, Env#state.vehicle_list),
-        Env#state{vehicle_list = NewVehicleList};
+        VehicleList1 = remove_vehicle(Pid, Env#state.vehicle_list),
+        VehicleList2 = dict:append(Pid, Pos, VehicleList1),
+        Env#state{vehicle_list = VehicleList2};
     {_, #vertex_info{}} -> 
       io:format("A vehicle is already in that position: ~p~n", [Pos]),
       Env;
