@@ -48,10 +48,14 @@ init([CompDetails]) ->
 
 %% Logs of level "debug" are saved only in the log file
 handle_call({Level, Tag, Msg}, _From, State) ->
+  {{Year,Month,Day},{Hour,Min,Sec}} = erlang:localtime(),
+  Date = lists:concat(
+    [Year, "-", Month, "-", Day, "::", Hour, ":", Min, ":", Sec]
+  ),
   io:format( 
     State#component.probe,
-    "[~p] ~p: ~p: --- ~p --- ~n",
-    [node(), string:uppercase( atom_to_list( Level ) ), Tag, Msg]
+    "[~p - ~p] ~p: ~p: --- ~p --- ~n",
+    [Date, node(), string:uppercase( atom_to_list( Level ) ), Tag, Msg]
   ),
   case Level of
     debug -> nothing;
