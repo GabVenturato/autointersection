@@ -1,5 +1,6 @@
 #/bin/bash
 
+VEHICLE_EBIN=apps/vehicle/ebin/
 ENVHOST=env@$HOSTNAME
 
 if test $# -ne 3
@@ -8,7 +9,7 @@ then
 	exit 1
 fi
 
-erl -sname v$1 -pa ebin/ -eval \
+erl -sname v$1 -pa $VEHICLE_EBIN -eval \
 "Route = rpc:call($ENVHOST, env, get_route, [\"$2\", \"$3\"]),
 application:start(vehicle),
 vehicle:initialize(Route, {env, $ENVHOST}),

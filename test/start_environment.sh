@@ -1,2 +1,5 @@
 #/bin/bash
-erl -sname env -pa ebin/ -eval "application:start(environment)."
+
+ENVIRONMENT_EBIN=apps/environment/ebin/
+
+erl -sname env -pa $ENVIRONMENT_EBIN -eval "application:start(environment)."
