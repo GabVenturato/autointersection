@@ -14,7 +14,7 @@
   { fail_ratio
   , sw_fail_rel_ratio
   , max_fail_timeout
-  , host_list
+  , node_list
   , start_list
   , finish_list
   }).
@@ -32,7 +32,7 @@ start(N, FailRatio) ->
     , FailRatio
     , 0.5
     , ?DEFAULT_MAX_FAIL_TIMEOUT
-    , lists:duplicate( N, ?HOSTNAME )
+    , []
     ],
     []
   ).
@@ -45,7 +45,7 @@ start(N, FailRatio, SwFailRelRatio) ->
     , FailRatio
     , SwFailRelRatio
     , ?DEFAULT_MAX_FAIL_TIMEOUT
-    , lists:duplicate( N, ?HOSTNAME )
+    , []
     ],
     []
   ).
@@ -58,12 +58,12 @@ start(N, FailRatio, SwFailRelRatio, MaxFailTimeout) ->
     , FailRatio
     , SwFailRelRatio
     , MaxFailTimeout
-    , lists:duplicate( N, ?HOSTNAME )
+    , []
     ],
     []
   ).
 
-start(N, FailRatio, SwFailRelRatio, MaxFailTimeout, HostNames) ->
+start(N, FailRatio, SwFailRelRatio, MaxFailTimeout, Nodes) ->
   gen_server:start(
     {local, ?MODULE},
     ?MODULE,
@@ -71,7 +71,7 @@ start(N, FailRatio, SwFailRelRatio, MaxFailTimeout, HostNames) ->
     , FailRatio
     , SwFailRelRatio
     , MaxFailTimeout
-    , HostNames
+    , Nodes
     ],
     []
   ).
@@ -94,12 +94,12 @@ stop() ->
 
 %%% -------------------------- Callback Functions -------------------------- %%%
 
-init([N, FailRatio, SwFailRelRatio, MaxFailTimeout, HostNames]) ->
+init([N, FailRatio, SwFailRelRatio, MaxFailTimeout, Nodes]) ->
   State = #state
     { fail_ratio = FailRatio
     , sw_fail_rel_ratio = SwFailRelRatio
     , max_fail_timeout = MaxFailTimeout
-    , host_list = HostNames
+    , node_list = Nodes
     , start_list = rpc:call( ?ENV_NODE, env, get_start_positions, [] )
     , finish_list = rpc:call( ?ENV_NODE, env, get_finish_positions, [] )
     },
@@ -160,7 +160,7 @@ generate_vehicles(
       { fail_ratio = FailRatio
       , sw_fail_rel_ratio = SwFailRelRatio
       , max_fail_timeout = MaxFailTimeout
-      , host_list = HostNames
+      , node_list = Nodes
       , start_list = StartList
       , finish_list = FinishList
       } = State,
@@ -169,7 +169,7 @@ generate_vehicles(
 
   generate_vehicles(
     I - 1,
-    State#state{host_list = erlang:tl( HostNames )}, 
+    State#state{node_list = safe_tail( Nodes )}, 
     GenPid
   ),
 
@@ -177,20 +177,32 @@ generate_vehicles(
   Finish = lists:nth( rand:uniform( length( FinishList ) ), FinishList ),
   Route = rpc:call( ?ENV_NODE, env, get_route, [Start, Finish]),
 
-  Name = "v" ++ erlang:integer_to_list( I ),
-  {ok, Node} = slave:start( erlang:hd( HostNames ), Name, "-pa ebin" ),
+  %% If node_list is defined take node name from it (assuming the node is 
+  %%  already started), otherwise create one.
+  Vehicle = case Nodes of
+    [] ->
+      Name = "v" ++ erlang:integer_to_list( I ),
+      {ok, Node} = slave:start( 
+        ?HOSTNAME, 
+        Name, 
+        "-pa ebin" 
+      ),
+      Node;
+    _ ->
+      erlang:hd( Nodes )
+  end,
   
-  rpc:call( Node, application, start, [vehicle] ),
-  rpc:call( Node, vehicle, initialize, [Route, ?ENV_REF] ),
-  rpc:call( Node, vehicle, set_testing_environment, [?ENV_REF] ),
+  rpc:call( Vehicle, application, start, [vehicle] ),
+  rpc:call( Vehicle, vehicle, initialize, [Route, ?ENV_REF] ),
+  rpc:call( Vehicle, vehicle, set_testing_environment, [?ENV_REF] ),
 
   io:format( 
     "GENERATOR: Vehice ~p generated! Starting from ~p and directed to ~p~n", 
-    [Node, Start, Finish]
+    [Vehicle, Start, Finish]
   ),
 
   % Startup the vehicle
-  startup( Node, Start, null ),
+  startup( Vehicle, Start, null ),
 
   C = rand:uniform(),
   if 
@@ -203,7 +215,7 @@ generate_vehicles(
           erlang:send_after( 
             rand:uniform( MaxFailTimeout ),
             GenPid,
-            {casue_software_failure, Node}
+            {casue_software_failure, Vehicle}
           );
 
         % Cause a mechanical failure
@@ -211,7 +223,7 @@ generate_vehicles(
           erlang:send_after( 
             rand:uniform( MaxFailTimeout ),
             GenPid,
-            {cause_mechanical_failure, Node}
+            {cause_mechanical_failure, Vehicle}
           )
       end;
 
@@ -248,3 +260,7 @@ startup(Vehicle, StartPos, Ref) ->
         end
     end
   end.
+
+
+safe_tail([]) -> [];
+safe_tail([_ | Tail])  -> Tail.
