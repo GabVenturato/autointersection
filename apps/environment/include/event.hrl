@@ -1,0 +1,1 @@
+-record(event, {type, name, content}).
