@@ -1,8 +1,8 @@
 #/bin/bash
   echo "RUNNING"
-if [[ ( $# -lt 2 ) || ( $# -gt 5 ) ]]
+if [[ ( $# -lt 2 ) || ( $# -gt 7 ) ]]
 then
-	echo "command usage: start_generator.sh <vehicle number> <fail ratio> [relaive sw fail ratio] [max fail timeout (ms)] [host list]"
+	echo "command usage: start_generator.sh <vehicle number> <fail ratio> [relaive sw fail ratio] [max fail timeout (ms)] [host list] [node name] [cookie name]"
 	exit 1
 fi
 
@@ -24,4 +24,9 @@ fi
 if test $# -eq 5
 then
 	erl -sname env -pa ebin/ -noshell -eval "application:start(environment), vehicle_generator:start( $1, $2, $3, $4, $5 )."
+fi
+
+if test $# -eq 7
+then
+	erl -name $6 -pa apps/environment/ebin apps/vehicle/ebin test/ebin -noshell -setcookie $7 -eval "application:start(environment), vehicle_generator:start( $1, $2, $3, $4, $5 )."
 fi
