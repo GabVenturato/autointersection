@@ -20,7 +20,7 @@ docker network create --driver bridge $NETWORK_NAME
 
 
 # Start node longname list.
-LIST="\"["
+LIST="["
 
 BASE_NAME="v"
 
@@ -33,21 +33,17 @@ do
   docker run --name $NAME --network=$NETWORK_NAME -t -d --rm erlang-autointersection:1.0
   IP_ADDR=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $NAME)
 
-  NODENAME="$NAME@$IP_ADDR"
-  echo $NODENAME
+  NODENAME=$NAME@$IP_ADDR
 
-
-  docker exec -d $NAME erl -pa apps/vehicle/ebin apps/environment/ebin -name $NODENAME -setcookie $COOKIE_NAME
+  docker exec -d $NAME erl -pa ebin/ -noshell -name $NODENAME -setcookie $COOKIE_NAME
 
   # Append the generated hostname to the hostname list
-  LIST="$LIST$NODENAME,"
+  LIST="$LIST'$NODENAME',"
 
 done
 
 # Remove the last ',' and close the list
-NODENAME_LIST="${LIST::-1}]\""
-
-echo $NODENAME_LIST
+NODENAME_LIST="${LIST::-1}]"
 
 docker run --name main --network=$NETWORK_NAME -t -d --rm erlang-autointersection:1.0
 
@@ -55,4 +51,4 @@ IP_ADDR=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{
 
 MAIN="env@$IP_ADDR"
 
-docker exec -it main bash test/start_generator.sh $NUMBER_OF_VEHICLES $FAIL_RATIO $REL_SW_FAIL_RATIO $MAX_FAIL_TIMEOUT $HOSTNAME_LIST $MAIN $COOKIE_NAME
+docker exec -it main /bin/bash test/start_generator.sh $NUMBER_OF_VEHICLES $FAIL_RATIO $REL_SW_FAIL_RATIO $MAX_FAIL_TIMEOUT $NODENAME_LIST $MAIN $COOKIE_NAME

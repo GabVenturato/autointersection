@@ -5,7 +5,7 @@
 -export( [terminate/2, generate_vehicles/3] ).
 
 -define( HOSTNAME, element( 2, inet:gethostname() ) ).
--define( ENV_NODE, list_to_atom( "env@" ++ ?HOSTNAME ) ).
+-define( ENV_NODE, list_to_atom( "env@" ++ local_ip_v4() ) ).
 -define( ENV_REF, {env, ?ENV_NODE} ).
 -define( DEFAULT_MAX_FAIL_TIMEOUT, 20000 ).
 -define( TOW_TRUCK_TIME, 30000 ).
@@ -264,3 +264,14 @@ startup(Vehicle, StartPos, Ref) ->
 
 safe_tail([]) -> [];
 safe_tail([_ | Tail])  -> Tail.
+
+local_ip_v4() ->
+  {ok, Addrs} = inet:getifaddrs(),
+  Ip = hd([
+        Addr || {_, Opts} <- Addrs, {addr, Addr} <- Opts,
+        size(Addr) == 4, Addr =/= {127,0,0,1}
+  ]),
+  case Ip of
+    {N1,N2,N3,N4} -> lists:concat([N1, ".", N2, ".", N3, ".", N4]);
+    _ -> null
+  end.

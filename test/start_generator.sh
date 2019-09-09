@@ -28,5 +28,5 @@ fi
 
 if test $# -eq 7
 then
-	erl -name $6 -pa apps/environment/ebin apps/vehicle/ebin test/ebin -noshell -setcookie $7 -eval "application:start(environment), vehicle_generator:start( $1, $2, $3, $4, $5 )."
+	erl -name $6 -pa ebin/ -noshell -setcookie $7 -eval "application:start(environment), vehicle_generator:start( $1, $2, $3, $4, $5 )."
 fi
