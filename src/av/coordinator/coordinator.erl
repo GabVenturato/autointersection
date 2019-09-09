@@ -23,7 +23,7 @@
 -define(EVENT_MAN_SPEC(Args),
         {event_man,
          {gen_event, start_link, Args},
-         permanent,
+         temporary,
          10000,
          worker,
          [gen_event]}).
@@ -32,7 +32,7 @@
 -define(COMP_SUP_SPEC(Args),
         {component_sup,
          {component_supervisor, start_link, [Args]},
-         permanent,
+         temporary,
          10000,
          supervisor,
          [component_supervisor]}).
@@ -41,7 +41,7 @@
 -define(COMP_SPEC(Module, Args),
         {Module,
          {Module, start_link, [Args]},
-         permanent,
+         temporary,
          3000,
          worker,
          [Module]}).
@@ -173,14 +173,13 @@ handle_cast(moved, State) ->
   {noreply, State#state{route = NewRoute}};
 
 handle_cast(breakdown, State) ->
-  Sup = State#state.supervisor,
+  % Sup = State#state.supervisor,
   EvMan = State#state.event_manager,
   internal:log(State#state.event_manager, "Mechanical failure. Tow truck will take care of me."),
   internal:event(EvMan, notification, vehicle_breakdown, []),
-  supervisor:terminate_child(Sup, component_sup),
   timer:sleep(?TOW_TRUCK_TIME),
   update_position(EvMan, current_position(State#state.route), []),
-  {stop, "Mechanical failure", State};
+  {stop, normal, State};
 
 handle_cast(_, State) -> {noreply, State}.
 

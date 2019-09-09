@@ -28,12 +28,12 @@ init([]) ->
     {ok, {{?RESTART_STRATEGY, ?MAX_RESTART, ?MAX_TIME},
           [{coord,
             {coordinator, start_link, [self()]},
-            permanent, 1000, worker, [coordinator]}
+            temporary, 1000, worker, [coordinator]}
           ]}};
 
 init({Route, Components}) ->
   {ok, {{?RESTART_STRATEGY, ?MAX_RESTART, ?MAX_TIME},
         [{coord,
           {coordinator, start_link, [self(), Route, Components]},
-          permanent, 1000, worker, [coordinator]}
+          temporary, 1000, worker, [coordinator]}
         ]}}.
