@@ -1,0 +1,19 @@
+version: "3"
+services:
+  main:
+    image: erlang-autointersection:1.0
+    # We're using the following command to bring up erlang shell
+    # for the example purposes, but in the other case the command
+    # will describe a running container
+    command: bash test/start_generator.sh $NUMBER_OF_VEHICLES $FAIL_RATIO $REL_SW_FAIL_RATIO $MAX_FAIL_TIMEOUT $HOSTNAME_LIST
+          
+    container_name: main
+    hostname: environment
+    networks:
+      - autointersection_local
+
+# We're using custom network setup, as it ships with a DNS
+# system which allows containers to communicate by hostnames.
+networks:
+  autointersection_local:
+    external: true
