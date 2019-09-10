@@ -58,11 +58,15 @@ dockerdemo: docker
 .PHONY: clean
 clean:
 	rm -rf $(ERL_OUT) *.dump log
+	@chmod +x docker/stop_docker.sh
+	@chmod +x docker/clean_docker.sh
 	@printf "\nClean docker:\n"
 	@./docker/clean_docker.sh
 
 .PHONY: distclean
 distclean:
 	rm -rf $(LATEX_OUT) $(ERL_OUT) *.dump log
+	@chmod +x docker/stop_docker.sh
+	@chmod +x docker/clean_docker.sh
 	@printf "\nClean docker:\n"
 	@./docker/clean_docker.sh
