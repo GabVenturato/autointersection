@@ -1,8 +1,14 @@
 #/bin/bash
-  echo "RUNNING"
+
 if [[ ( $# -lt 2 ) || ( $# -gt 7 ) ]]
 then
-	echo "command usage: start_generator.sh <vehicle number> <fail ratio> [relaive sw fail ratio] [max fail timeout (ms)] [host list] [node name] [cookie name]"
+	echo "command usage: start_generator.sh <vehicle number> /
+                                          <fail ratio> /
+                                          [relaive sw fail ratio] /
+                                          [max fail timeout (ms)] /
+                                          [host list] /
+                                          [<node name> /
+                                           <cookie name>]"
 	exit 1
 fi
 
