@@ -105,9 +105,15 @@ handle_call({update_position, {Vehicle, OldPos, NewPos}}, _From, Env) ->
   NewEnv = release(OldPos, Env),
   NewestEnv = add(Vehicle, NewPos, NewEnv),
   Msg = lists:concat(
-      ["Vehicle ", Vehicle, " is now in position ", NewPos, " (was ", OldPos, ")."]),
-  gen_server:call(Env#state.logger,
-                  {log, "Vehicle position updated", Msg}),
+    [ "Vehicle "
+    , Vehicle
+    , " moved from position "
+    , OldPos
+    , " to "
+    , NewPos
+    , "."]
+  ),
+  gen_server:call(Env#state.logger, {log, "Vehicle position updated", Msg}),
   {reply, ok, NewestEnv};
 
 handle_call({vehicle_at, Pos}, _From, Env) ->
