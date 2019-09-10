@@ -11,6 +11,3 @@ docker stop $(docker network inspect \
   $NETWORK_NAME)
 
 docker network rm $NETWORK_NAME
-
-# Remove log folder.
-rm -r $(pwd)/docker_log
