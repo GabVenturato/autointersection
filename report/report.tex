@@ -347,6 +347,13 @@ The architecture is quite simple, a graphical representation is displayed in Fig
 \chapter{Implementation}
 The project is developed in \href{https://www.erlang.org/}{Erlang}.
 
+\begin{figure}
+	\centering
+	\includegraphics[width=\linewidth]{config_graph.pdf}
+	\caption{Graphical representation of the intersection graph contained in the configuration file, and used to test the project. Nodes with name $R\_x$ represents roads. Details: in green start nodes ($R\_1, R\_11, R\_21, R\_31$), in blue destination node ($R\_10, R\_20, R\_30, R\_40$), in yellow intersection internal nodes ($I\_x$), in red intersection entrance nodes ($IN\_x$), in purple intersection exit nodes ($OUT\_x$). }
+	\label{fig:config-graph}
+\end{figure}
+
 \section{Getting Started}
 \subsection{Project Structure}
 \subsection{Hands On}
@@ -363,24 +370,78 @@ The validation part consisted in three main phases. First of all the project was
 
 The project has been tested on Fedora 30 with Erlang/OTP 21, and on Ubuntu 18.04 LTS with Erlang/OTP 22.
 
-After careful planning and developing, and after all these tests phases, we are confident of providing a reliable and sound solution. In next sections is described how to reproduce the tests.
+After careful planning and developing, and after all these tests phases, we are confident of providing a reliable and sound solution. In next sections is described how to reproduce the tests. All the scripts provided have been tested only on cited above operative systems, same results are not guaranteed in Mac OS or Windows.
+
+To perform tests is necessary to have in mind the graph of the interception presented in Figure~\ref{fig:config-graph}. Moreover, for the test with the generator and with docker, the scripts will not exit at the end of the simulation, because we can't understand when all vehicles have finished, but you can easily check that if for about a minute nothing is printed, then the simulation is over, and you can kill the script with \verb|ctrl+C| and then \verb|(a)bort|.
 
 \section{Simple Tests}
+To use the code proposed here is necessary to execute \texttt{make all}. Some scripts are provided in the direcotry \texttt{test/}. Note that is is important to execute the script provided from the project root.
+
+First of all it is necessary to start the environment. To do it open a shell and run:
+\begin{verbatim}
+./test/start_environment.sh
+\end{verbatim}
+You should se now an Erlang shell with the message ``Env started!''.
+
+Now it is time to produce vehicles: pretty easy, open another shell and run:
+\begin{verbatim}
+./test/start_vehicle.sh 1 R_1 R_30
+\end{verbatim}
+Where, the first parameter is the index of the vehicle to generate --- note that if you insert $x$ the erlang node will be \verb|v|$x$\verb|@hostname|. The second and the third parameters are the start position, and the destination position, chosen from the graph in Figure~\ref{fig:config-graph}. One can also start a vehicle from other positions chosen from $R_x$ or $IN_x$, to test different situations.
+
+You will see that in every vehicle shell is printed what it is doing, and more information can be found in the vehicle logs inside the \texttt{log/} directory.
 
 \section{Vehicle Generator}
+To use the code proposed here is necessary to execute \texttt{make all}. To start the vehicle generator can be used the script inside the \texttt{test/} directory, as follows:
+\begin{verbatim}
+./test/start_generator.sh <vehicle number> <fail ratio> \
+	[relaive sw fail ratio] [max fail timeout (ms)]
+\end{verbatim}
+for example you can try:
+\begin{verbatim}
+./test/start_generator.sh 10 0.2 0.5 20000
+\end{verbatim}
+Where:
+\begin{itemize}
+	\item \verb|<vehicle number>| is mandatory and represent the number of vehicles that will be generated.
+	\item \verb|<fail ratio>| is mandatory and represent the percentage (expressed with a number $0 \le x \le 1$) of failures that will be generated.
+	\item \verb|[relaive sw fail ratio]| is optional and represent the ratio of software failures caused by the generator. (e.g. if set to $0.5$, half faults will be software, and the other half will be mechanical).
+	\item \verb|[max fail timeout (ms)]| represent the maximum time in milliseconds within which the fault will be caused, considering the moment when the vehicle starts. (e.g. if set to $20000$, the vehicle can fail after a maximum of $20s$ from its start).
+\end{itemize}
+To stop the execution press \verb|ctrl+C| and then \verb|(a)bort|. The information here are printed all in the same shell, so it is less clear what is happening, but the logs for each vehicle can be found in the \verb|log/| directory.
 
 \section{Docker}
+To use the code proposed here is necessary to execute \texttt{make docker}. Note that with the tests proposed here is required to have docker installed and configured properly. Some containers, and a network, will be created. In \verb|docker/| directory are provided some script to easily run the tests and also to stop and clean the containers and network created.
+
+The command to run is:
+\begin{verbatim}
+./docker/start_docker.sh <vehicle number> <fail ratio> \
+[relaive sw fail ratio] [max fail timeout (ms)]
+\end{verbatim}
+for example you can try:
+\begin{verbatim}
+./docker/start_docker.sh 10 0.2 0.5 20000
+\end{verbatim}
+Where the parameters are the same of the vehicle generator described in the previous section.
+Note that in docker you will se only messages printed from the generator. To see what happens to the vehicles you can look at the \verb|docker_log/| directory, where all vehicles log are generated. Further, can be necessary to provide root permission to delete \verb|docker_log/| directory, because the files are generated by root user inside the containers, so the proprietary user is still root.
+After stopping the simulation, everything can be cleaned with:
+\begin{verbatim}
+./docker/clean_docker.sh
+\end{verbatim}
 
 \chapter{Conclusions}
-The proposed solution focuses on a very simplified version of what a real solution could be. In particular the aim is to produce a core solution which satisfies the requirements but that also does not contain more than necessary assumptions, and in particular that does not rely on non realistic ideas that can lead future development to a blind spot.
+The proposed solution focuses on a very simplified version of what a real solution could be. In particular the aim was to produce a core solution which satisfies the requirements but that also does not contain more than necessary assumptions, and in particular that does not rely on non realistic ideas that can lead future development to a blind spot.
 
-If the core simplified part will be easily developed and validated, then some advancement can be pursued, for example:
+\section{Partial implementation and future work}
+Some advancement that can be pursued starting from our solution are provided here. Some of them are easier than other, but due to lack of time we did not managed to deepen them:
 \begin{itemize}
+	\item Try different interception graphs;
+	\item Centralize some configuration parameters in such a way the solution can be tuned without recompiling;
+	\item Exploit code change feature offered by Erlang;
+	\item Develop a graphical interface of the environment to better understand how vehicles are moving;
 	\item Add vehicles with priorities, e.g. emergency vehicles;
 	\item Dynamically modify paths inside the crossroad if some position becomes unavailable;
 	\item Let more than one vehicle per time cross the intersection, maybe with an interface to a planner in order to find the best route (exploiting epistemic planning could be an interesting option).
 \end{itemize}
-
-\section{Partial implementation and future work}
 
 \end{document}
