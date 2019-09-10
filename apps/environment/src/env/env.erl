@@ -18,6 +18,7 @@
   , graph
   , waiting_list
   , vehicle_list
+  , logger
   }).
 
 -record(vertex_info,
@@ -90,8 +91,9 @@ init([ConfDir]) ->
                     waiting_list = dict:new(),
                     vehicle_list = dict:new() },
   NewEnv = build_graph(InitEnv, ConfDir),
+  {ok, Logger} = env_logger:start_link(),
   io:format( "Env started! ~n"),
-  {ok, NewEnv}.
+  {ok, NewEnv#state{logger = Logger}}.
 
 
 %%% Synchronous requests:
@@ -102,6 +104,10 @@ handle_call({is_position_free, Pos}, _From, Env) ->
 handle_call({update_position, {Vehicle, OldPos, NewPos}}, _From, Env) ->
   NewEnv = release(OldPos, Env),
   NewestEnv = add(Vehicle, NewPos, NewEnv),
+  Msg = lists:concat(
+      ["Vehicle ", Vehicle, " is now in position ", NewPos, " (was ", OldPos, ")."]),
+  gen_server:call(Env#state.logger,
+                  {log, "Vehicle position updated", Msg}),
   {reply, ok, NewestEnv};
 
 handle_call({vehicle_at, Pos}, _From, Env) ->
