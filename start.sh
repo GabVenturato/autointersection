@@ -36,7 +36,7 @@ do
   NAME="$BASE_NAME$SUFFIX"
 
   # Start vehicle container, attach it to the created network, create a volume for storing log files on host machine.
-  docker run --name $NAME --network=$NETWORK_NAME -t -d --rm -v $(pwd)/docker_log:/autointersection/log erlang-autointersection:1.0
+  docker run --name $NAME --network=$NETWORK_NAME -t -d --rm -v "$(pwd)/docker_log":/autointersection/log erlang-autointersection:1.0
 
   # Take the ip address of the running container.
   IP_ADDR=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $NAME)
