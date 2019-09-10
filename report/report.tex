@@ -3,6 +3,8 @@
 \usepackage{graphicx}
 \graphicspath{ {figures/} }
 
+\setcounter{secnumdepth}{3}
+
 \title{Distributed Systems:\\Crossing Intersection with Autonomous Vehicles}
 
 \author{Antonio Toncetti\\Gabriele Venturato\\\\DMIF, University of Udine, Italy}
@@ -27,10 +29,10 @@ The solution proposed in this report is meant to be more general and as modular 
 
 The problem to solve is the one in which some autonomous vehicles have to cross an intersection without being involved in road accidents. 
 
-The idea is to solve the problem for a generic intersection. The autonomous vehicles can't rely on a central server, they have to cooperate with each other to cross the intersection by taking decisions which ensure a \emph{fair} and \emph{safe} policy. In particular there are two components in the proposed solution: vehicles and the environment. The latter is necessary in this context in order to simulate sensors that are usually inside autonomous vehicles which allows them to interact with the environment (e.g. proximity sensors, GPS, cameras, etc\dots).
+The idea is to solve the problem for a generic intersection. The autonomous vehicles can not rely on a central server, they have to cooperate with each other to cross the intersection by taking decisions which ensure a \emph{fair} and \emph{safe} policy. In particular there are two components in the proposed solution: vehicles and the environment. The latter is necessary in this context in order to simulate sensors that are usually inside autonomous vehicles which allows them to interact with the environment (e.g. proximity sensors, GPS, cameras, etc\dots).
 The system is \emph{fault tolerant}, but neither byzantine processes nor cybersecurity hazards are taken in consideration, for simplification purpose.
 
-The report starts by analysing the project: Chapter~\ref{ch:analysis} is devoted to functional and non-functional requirements, and system assumptions too. Chapter~\ref{ch:project} contains the description of the general architecture, and specific algorithms.
+The report starts by analysing the project: Chapter~\ref{ch:analysis} is devoted to use cases, functional and non-functional requirements, and system assumptions too. Chapter~\ref{ch:project} contains the description of the general architecture, and specific algorithms.
 
 Following chapters aim to describe details of the implementation, and validation w.r.t. requirements.
 
@@ -40,19 +42,140 @@ Following chapters aim to describe details of the implementation, and validation
 
 This chapter describes in detail some fundamental assumptions about the system, as well as functional and non-functional requirements.
 
+\section{Use cases}
+
+\subsection{Vehicle at an intersection}
+\begin{description}
+	\addtolength{\itemindent}{0.5cm}
+	\item[Brief Description] \hfill \\
+	An Autonomous Vehicle (AV) is approaching, entering and leaving a non empty intersection. The use case begins with the AV approaching an intersection and ends with the AV having left the intersection in the desired direction. 
+	
+	\item[Actors] \hfill
+	\begin{itemize}
+		\item Autonomous Vehicles (AVs)
+		\item Environment
+	\end{itemize}
+	
+	\item[Preconditions] \hfill
+	\begin{itemize}
+		\item There is more than one AV at the intersection. 
+		\item AVs can be both active and inactive.
+		\item The AV approaching the intersection is active.
+		\item The AV knows the direction (exit) to take.
+	\end{itemize}
+	
+	\item[Scenarios] \hfill
+	\begin{description}
+		\item Main scenario
+		\begin{enumerate}
+			\item The AV is travelling along a road leading to an intersection.
+			\item The AV is approaching the intersection.
+			\item The AV stops at the entrance to the intersection.
+			\item The AV signals its intent to other AVs at the intersection.
+			\item The AV agrees with the other participants on how to solve the intersection.
+			\item The AV initiates the turn procedure towards the desired exit.
+			\item The AV is in the intersection travelling to an exit.
+			\item The AV leaves the intersection through an exit.
+			\item The AV signals that it has successfully left the intersection.
+			\item The AV continues to travel along its path.
+		\end{enumerate}
+		\item Alternative scenario
+		\begin{enumerate}
+			\item 1, 2	The AV finds an active AV in front and gets in the queue.
+			\item 1, 2	The AV finds a faulty AV in front and overtakes him.
+			\item 6. 7	The AV finds a faulty AV and awaits for its removal.
+		\end{enumerate}
+	\end{description}
+
+	\item[Postconditions] \hfill \\
+	At any point in its journey the AV can become inactive due to a mechanical failure or  a software failure.
+\end{description}
+
+\subsection{Vehicle mechanical failure}
+\begin{description}
+	\addtolength{\itemindent}{0.5cm}
+	\item[Brief Description] \hfill \\
+	When an Autonomous Vehicle (AV) has a mechanical failure but the software is still working properly. The use case begins when the failure happens, and ends with the recovery of a normal situation.
+	
+	\item[Actors] \hfill
+	\begin{itemize}
+		\item Autonomous Vehicle (AV)
+		\item Environment
+	\end{itemize}
+	
+	\item[Preconditions] \hfill
+	\begin{itemize}
+		\item There is at least one AV with a mechanical fault.
+		\item There are possibly other AVs in the intercept network.
+		\item Any other AV can fail at any moment.
+	\end{itemize}
+	
+	\item[Scenarios] \hfill
+	\begin{description}
+		\item Main scenario
+		\begin{enumerate}
+			\item The AV detects the mechanical fault.
+			\item The faulty AV communicates its state to the others in the network and to the environment.
+			\item Faulty AV awaits until it is removed.
+			\item Before leaving, communicate to the others (and the environment) the resolution.
+		\end{enumerate}
+	\end{description}
+	
+	\item[Postconditions] \hfill \\
+	The network does not contain the faulty AV anymore.
+\end{description}
+
+\subsection{Vehicle software failure}
+\begin{description}
+	\addtolength{\itemindent}{0.5cm}
+	\item[Brief Description] \hfill \\
+	When an Autonomous Vehicle (AV) has a software failure. This implies a mechanical failure, because we assume that a software failure stops the AV. The use case begins with the fault having happened, and ends with the recovery of a normal situation.
+	
+	\item[Actors] \hfill
+	\begin{itemize}
+		\item Autonomous Vehicle (AV)
+		\item Environment
+	\end{itemize}
+	
+	\item[Preconditions] \hfill
+	\begin{itemize}
+		\item There is at least one AV with a software fault.
+		\item There are possibly other AVs in the intersection network.
+		\item Any other AV can fail at any moment.
+	\end{itemize}
+	
+	\item[Scenarios] \hfill
+	\begin{description}
+		\item Main scenario
+		\begin{enumerate}
+			\item One of the other AVs in the network detects the fault.
+			\item The AV which detects the fault communicates to others in the network which AV has just faulted.
+			\item Everyone awaits for the faulty AV to be removed.
+			\item The Environment communicates to the AVs in the network the occured removal.
+		\end{enumerate}
+		\item Alternative scenario
+		\begin{enumerate}
+			\item On 1 can happen that there is no other AVs, in that case the faulted AV stays into the intersection until someone comes to the rescue.
+		\end{enumerate}
+	\end{description}
+	
+	\item[Postconditions] \hfill \\
+	The network does not contain the faulty AV anymore.
+\end{description}
+
 \section{Assumptions}
 
-Some general considerations are here presented. First of all it's assumed a situation in which each autonomous vehicle knows its destination and the roads it is going to travel, since we can assume that each autonomous vehicle has a GPS device on board.
+Some general considerations are here presented. First of all it is assumed a situation in which each autonomous vehicle knows its destination and the roads it is going to travel, since we can assume that each autonomous vehicle has a GPS device on board.
 
-Moreover it's assumed, for sake of simplicity, that all vehicles have the same dimension --- or better: that each vehicle can fit into a single position of the internal model used to represent the roads. Moreover, common physical quantities (like weight, speed, acceleration, etc\dots) are omitted. Instead, the autonomous vehicles move in unit steps governed by the internal model.
+Moreover it is assumed, for sake of simplicity, that all vehicles have the same dimension --- or better: that each vehicle can fit into a single position of the internal model used to represent the roads. Moreover, common physical quantities (like weight, speed, acceleration, etc\dots) are omitted. Instead, the autonomous vehicles move in unit steps governed by the internal model.
 \newline
 
 Further assumptions are:
 
 \begin{itemize}
-	\item \emph{Faults}: at any moment a failure can arise in vehicles --- software or mechanical. A mechanical failure doesn't compromise the software abilities, but a software failure implies an hardware failure. Since we can assume that if the software fails, the autonomous vehicle stops and goes in ``emergency mode''. It's also assumed that if a crash happens in queues, there's enough space for the other vehicles to overtake the faulty one; but if the crash happens inside the crossroads it must be managed by removing the faulty vehicle with a tow truck (or something similar).
-	\item \emph{Moves}: the path that a vehicle can take inside the interception is predefined and known a priori. From each position there's a unique path to each destination, and no one can modify or choose a different path once decided. A visual representation of this assumption can be found in Figure~\ref{fig:intersection-graph}, in which green dots represent positions occupied while crossing, and light-blue dots are the destinations. Once a vehicle reaches its destination, it is considered ``satisfied'', and can not fail anymore, it can only move forward on its own way. Reversing is not allowed.
-	\item \emph{Message Delivery}: there exist an upper bound time in message passing between two nodes. This is justified by the fact that all connection are direct, without routers or broker that can cause bottle-necks or network congestion.
+	\item \emph{Faults}: at any moment a failure can arise in vehicles --- software or mechanical. A mechanical failure does not compromise the software abilities, but a software failure implies a mechanical failure. So we can assume that if the software fails, the autonomous vehicle stops and goes in ``emergency mode''. It is also assumed that if a crash happens, it must be managed by removing the faulty vehicle with a tow truck (or something similar).
+	\item \emph{Moves}: the path that a vehicle can take inside the interception is predefined and known a priori. From each position there is a unique path to each destination, and no one can modify or choose a different path once decided. A visual representation of this assumption can be found in Figure~\ref{fig:intersection-graph}, in which green dots represent positions occupied while crossing, and light-blue dots are the destinations. Once a vehicle reaches its destination, it is considered ``satisfied'', and can not fail anymore, it can only move forward on its own way. Reversing is not allowed.
+	\item \emph{Message Delivery}: each vehicle can communicate with its immediate neighbors, i.e. the vehicle in front, the one behind it, and if it is at the verge of the crossroads, it can communicate with the others at the verge, and with crossing vehicles. Therefore it's assumed that there exist an upper bound time in message passing between two vehicles. This is justified by the fact that all connection are almost direct, without routers or broker that can cause bottle-necks or network congestion.
 \end{itemize}
 
 \begin{figure}
@@ -63,29 +186,49 @@ Further assumptions are:
 \end{figure}
 
 \section{Functional requirements}
-The solution provides two main modules: \emph{vehicle} and \emph{environment}.
+The solution provides two main modules: \emph{vehicle} and \emph{environment}. Also a \emph{vehicle generator} is provided, in order to test and validate the solution proposed.
 
 \subsection{Vehicle}
-Each vehicle has an internal state at any moment. Moreover he:
+Each vehicle has an internal state at any moment. Moreover it:
 
 \begin{itemize}
-	\item knows its position and what happens around, through the environment (in a real context this is handled by sensors like GPS and proximity sensors): it can pick up if there are other vehicles trying to cross, or if there is a vehicle in front or behind it;
-	\item communicates with its neighbours by sharing: the direction it wants to travel, its internal state, the next position he is about to reach;
-	\item if it's in the queue, it knows nothing other than its internal information and that it is taking part in a queue with someone before and possibly behind, it can communicate only with these two;
-	\item if it's in the head of the queue, it can connect with other vehicles (that are the head of other queues) that are crossing the intersection;
+	\item knows its position and what happens around, through the environment (in a real context this is handled by sensors like GPS and proximity sensors): it can detect if there are other vehicles trying to cross, or if there is a vehicle in front or behind it.
+	\item communicates with its neighbors by sharing: the direction it wants to travel, its internal state, the next position he is about to reach.
+	\item if it is in the queue, it knows nothing else than its internal information and that it is taking part in a queue with someone before and possibly behind. It can communicate only with these two.
+	\item if it is at the head of the queue, it can connect with other vehicles (that are at the head of other queues) that are crossing the intersection.
+\end{itemize}
+So, main functions offered by this module are:
+
+\begin{itemize}
+	\item \texttt{startup()} to start the vehicle.
+	\item \texttt{stop()} to stop the vehicle.
+	\item \texttt{cause\_mechanical\_failure()} and \texttt{cause\_software\_failure()}, to cause failures; these are useful to test simulating failures.
+	\item \texttt{send\_message(To,Msg)} to communicate with other vehicles.
+	\item \texttt{move()} to move one step forward.
+	\item \texttt{check\_next\_position()} to check if the position it is willing to move is free.
 \end{itemize}
 
-\subsection{Environment}
-The environment represent the vehicle's ability to use its sensors. It knows the intersection shape and dimension; it knows vehicles approaching the crossroads and the ones in the queues; it provides vehicles with all the information they need to safely manoeuvre within the environment.
 
-\section{Non functional requirements}
-The system doesn't handle byzantine processes nor cybersecurity issues.
+\subsection{Environment}
+The environment represent the vehicle ability to use its sensors. It knows the intersection shape and dimension; it knows vehicles approaching the crossroads and the ones in the queues; it provides vehicles with all the information they need to safely circulate within the environment.
+
+So, main functions offered by this module are:
 
 \begin{itemize}
-	\item \emph{Safeness}: there can't be more than a vehicle in the same position at the same time;
+	\item \texttt{is\_position\_free(Pos)} to simulate proximity sensors; check if a specific position is free.
+	\item \texttt{update\_position(Vehicle,OldPos,NewPos)} to update its internal state moving the vehicle from the old position into the new one.
+	\item \texttt{get\_route(StartPos,DestPos)} to simulate the GPS; a vehicle that is going to start its journey ask the environment which is the route it has to travel.
+	\item \texttt{get\_participants()} to simulate proximity sensors, cameras, and antennas; to ask the identity of vehicles at the verge of the intersection. 
+\end{itemize}
+
+\section{Non functional requirements}
+The system does not handle byzantine processes nor cybersecurity issues.
+
+\begin{itemize}
+	\item \emph{Safeness}: there can not be more than a vehicle in the same position at the same time;
 	\item \emph{Liveness}: if a vehicle approaches the intersection and is waiting to cross it, eventually it will cross it;
 	\item \emph{Fairness}: if a vehicle approaches the intersection and is waiting to cross it, there exists a bound to the waiting time;
-	\item \emph{Fault Tolerant}: the system is tolerant to hardware and software failures;
+	\item \emph{Fault Tolerant}: the system is tolerant to mechanical and software failures;
 	\item \emph{Distributed}: there is no central server, vehicles have to coordinate each other.
 \end{itemize}
 
@@ -95,12 +238,12 @@ The system doesn't handle byzantine processes nor cybersecurity issues.
 This chapter is devoted to the description of the general architecture, and specific algorithms.
 
 \section{Logical architecture}
-The solution leans on two main modules, and a secondary one for tests.
+The solution relies on two main modules, and a secondary one for tests.
 
 \begin{itemize}
-	\item \emph{Vehicle}: it is represented as a finite state automaton. A graphical representation can be seen in Figure~\ref{fig:vehicle-automaton}. Each state represents a situation in which the vehicle can find itself. A vehicle is in Waiting state when it is in the queue and it's not the first. It's in Ready state when it's the first in its queue. It's in Election when an election is needed but the current leader has not yet finished the crossing. Crossing, Crossed, and Crash states are self-explanatory.
+	\item \emph{Vehicle}: it is represented as a finite state automaton. A graphical representation can be seen in Figure~\ref{fig:vehicle-automaton}. Each state represents a situation in which the vehicle can find itself. A vehicle is in the \emph{Init} state when it has just approached the intersection. It is in the \emph{Ready} state when it is at the verge and has identified the participants. It is in \emph{Election} when it is performing the election algorithm to choose who will be the one to cross. \emph{Crossing} when it is crossing the interception, and \emph{Terminate} when it has finished the crossing. When a mechanical failure happens, it notifies the event to its neighbors and then terminate; so a crash state is not needed.
 	\item \emph{Environment}: it represents the physical environment accessible through autonomous vehicle sensors.
-	\item \emph{Random Generator}: it is a module aimed to (pseudo-)randomly generate vehicles that approach the intersection, and it is used to test and validate the solution proposed.
+	\item \emph{Vehicle Generator}: it is a module aimed to (pseudo-)randomly generate vehicles that approach the intersection, and it is used to test and validate the solution proposed.
 \end{itemize}
 
 \begin{figure}
@@ -116,19 +259,19 @@ This section describes the algorithm to solve the core part of the project. More
 \subsection{Intersection Crossing Algorithm}
 Vehicles queue up along the roads leading to an intersection awaiting for their turn to cross. The first vehicle of a queue is the vehicle at the verge of entering the intersection and we will call such vehicle a \emph{participant} of the intersection crossing algorithm.
 
-Note that this algorithm applies to generic intersections. Moreover, it trivially guarantees the \emph{fairness} and \emph{liveness} requirements, thanks to its round robin characteristic.
+Note that this algorithm applies to generic intersections, just by adapting the representing graph. Moreover, it trivially guarantees the \emph{fairness} and \emph{liveness} requirements (thus it is also \emph{deadlock-free}), thanks to its round robin characteristic.
 \\\\
 \noindent
 The algorithm maintains the following invariant through execution:
 
 \begin{itemize}
-	\item one vehicle per time can cross the intersection
+	\item one working (i.e. without faults) vehicle per time can be crossing the intersection
 	\item only the leader vehicle can cross the intersection
 \end{itemize}
 Algorithm description:
 \begin{enumerate}
 	\item The participants (first vehicles in their respective queues) are willing to cross the intersection;
-	\item They start a slightly modified version of the Bully Algorithm to elect a leader: it terminates with the leader $L$, and the next leader $L'$, which is the first vehicle after him in a clockwise manner;
+	\item They start a slightly modified version \footnote{In the canonical version of the Bully Algorithm, every participant is supposed to know other IDs a priori. The version used here does not rely on this assumption. Still, it guarantees the same outcome, even w.r.t. non functional requirements (safety and liveness).} of the Bully Algorithm to elect a leader: it terminates with the leader $L$, and the next leader $L'$, which is the first vehicle after him in a clockwise manner;
 	\item $L$ begins to cross the intersection;
 	\item After $L$ has successfully crossed the intersection, the participants are informed;
 	\item $L'$ identifies the next leader $L''$ by choosing the first vehicle after him in a clockwise manner;
@@ -137,32 +280,31 @@ Algorithm description:
 \end{enumerate}
 Additional details:
 \begin{itemize}
-	\item After the leader election, every participant knows who is the current leader, and who is the next one;
+	\item After the leader election, every participant knows who is the current leader, but only the leader knows who is the next one. In this way if the leader dies, it is necessary to perform a new election;
 	\item Once the leader starts crossing, the vehicle behind it (if any) becomes a new participant and asks to join the algorithm. Only the leader answers, providing its identity.
-	\item Once the vehicle behind the leader move forward, it's assumed that all the vehicles in the queue move forward too.
+	\item If a vehicle approaches an empty intersection it automatically elect itself as leader and starts the crossing.
 \end{itemize}
-A leader election starts only when new participants don't receive an answer when asking to join the algorithm. In particular: when one or more vehicles join an empty intersection, i.e. when they become participants and no prior participants are available, or when the candidate leader fails before becoming the new leader.
+A leader election starts only when new participants do not receive an answer when asking to join the algorithm; or when, after the leader is gone (after completing the crossing, or due to a failure), remaining participants does not receive the message from the candidate, communicating it is the new leader.
 
 \subsubsection{Managing abnormal cases}
 
-All participants monitor the leader and the candidate leader, if the leader fails, everyone knows who the next leader is (see 2. in the algorithm description).
+All participants monitor only the leader, if it fails, everyone is expecting a message from the candidate, telling it is the new leader. If this not happens, a new election is started. Moreover:
 
 \begin{itemize}
 	\item If the leader fails, the vehicle in clockwise order after him becomes the new leader --- identifying also the next candidate leader --- and the algorithm restarts from 3.
-	\item If a (non-crossing) participant fails, the vehicle behind it in the queue becomes immediately a participant, justified by the assumption that in queues there's enough space to overtake the faulty vehicle.
-	\item If the leader fails while crossing, a timeout $T$ is needed before it is removed from the intersection. Meanwhile a new election can start, and the new leader can start crossing, but it has to stop if the position in front of him is still occupied from the previous faulty leader.
-	\item If the candidate leader fails before becoming the new leader, a new election must be started \emph{after} the current leader have completed the crossing.
+	\item If the leader fails while crossing, a timeout $T$ is needed before it is removed from the intersection. Meanwhile a new election can start, and the new leader can start crossing, but it has to stop if the position in front of him is still occupied from the previous faulty leader, until the position has been freed.
+	\item Some peculiar situations can happen for example when a new vehicle arrives at the interception while the leader is gone and it is passing the leading to the candidate. It the new vehicle arrives at an unfortunate moment, it could receive no answers when asking who is the leader, and so starting a new election. The risk is that the candidate can become leader, and after a while someone else can win the election, stealing its role of leader. This can lead to disastrous scenarios, in which more than a vehicle start crossing. To avoid this, it is \emph{necessary} that a candidate receiving the role from the previous leader, in case of a sudden election, it turns out to be the winner. So, no one can steal the leading from anyone else. This is guaranteed with an appropriate implementation, described in the next chapter.
 \end{itemize}
 
 \subsection{Sequence Diagrams}
 This section presents some sequence diagrams of relevant case situations.
 
 \subsubsection{Normal execution of Intersection Crossing Algorithm}
-The diagram in Figure~\ref{fig:seq-diag-crossing-intersection} represent the normal execution of the algorithm described above. It starts at the end of the Bully Algorithm, with the $AV_4$ comunication it is the leader and the candidate leader is $AV_1$. It's assumed the queues are enumerated from 1 to 4 in clockwise order.
+The diagram in Figure~\ref{fig:seq-diag-crossing-intersection} represent the normal execution of the algorithm described above. It starts at the end of the Bully Algorithm, with the $AV_4$ communicating it is the leader. It is assumed the queues are enumerated from 1 to 4 in clockwise order.
 
 The leader crosses the intersection by asking the environment if the position in front of it is free, and continues to cross until it reaches its destination.
 
-It's important to note that when the leader starts crossing, the environment notifies $AV_5$ --- which is the one following $AV_4$ in the queue --- that it can move one position forward. Then $AV_5$ is at the verge of the intersection and can communicate with the other participants in order to compete for the crossing.
+It is important to note that when the leader starts crossing, $AV_5$ --- which is the one following $AV_4$ in the queue --- moves forward. Then $AV_5$ is at the verge of the intersection and can communicate with the other participants in order to compete for the crossing.
 
 \begin{figure}
 	\centering
@@ -173,7 +315,7 @@ It's important to note that when the leader starts crossing, the environment not
 
 \subsection{Dealing with AV failures}
 
-Leader failures don't cause troubles if they are detected by their relative candidates. Once a candidate detects the failure it automatically ascends to leader and notifies all participants. The normal algorithm flow is restored. The situation is represented by the sequence diagram in Figure~\ref{fig:seq-diag-leader-sw-failure}
+When the leader dies because of a software failure, it can not promote the candidate. So a new election is needed. The situation is represented by the sequence diagram in Figure~\ref{fig:seq-diag-leader-sw-failure}
 
 \begin{figure}
 	\centering
@@ -182,17 +324,7 @@ Leader failures don't cause troubles if they are detected by their relative cand
 	\label{fig:seq-diag-leader-sw-failure}
 \end{figure}
 
-
-Another delicate situation is the represented in Figure~\ref{fig:seq-diag-new-participant}. The leader fails and before the candidate detects the failure, a new participants asks to join the algorithm. This situation is solved by the assumption that there exist a time bound to message delivery, therefore the new participant knows that in a prefixed amount of time it can receive the message of the new elected leader.
-
-\begin{figure}
-	\centering
-	\includegraphics[width=\linewidth]{sequence_diagrams/new_participant.pdf}
-	\caption{Sequence diagram of a leader failure happening at the time a new participant joins.}
-	\label{fig:seq-diag-new-participant}
-\end{figure}
-
-The last situation in Figure~\ref{fig:seq-diag-candidate-failure} represents a failure of the candidate leader. The situation is restored when the leader detects the failure and starts a leader election.
+The last situation in Figure~\ref{fig:seq-diag-candidate-failure} represents a failure of the candidate leader. When the leader finish the crossing, everyone wait a timeout $T$ for a message from the candidate. Since it is not alive, the timeout runs out, and a new election is performed.
 
 \begin{figure}
 	\centering
@@ -202,17 +334,24 @@ The last situation in Figure~\ref{fig:seq-diag-candidate-failure} represents a f
 \end{figure}
 
 \section{Physical architecture and deployment}
-The architecture is quite simple, a graphical representation is displayed in Figure~\ref{fig:physical-architecture}. Each Autonomous Vehicle (AV) is a physical node. The Environment represents the world sensed by AVs, so it's not actually a physical node. AVs can ask the environment for information, and they can communicate with their neighbours.
+The architecture is quite simple, a graphical representation is displayed in Figure~\ref{fig:physical-architecture}. Each Autonomous Vehicle (AV) is a physical node. The Environment represents the world sensed by AVs, so it is on a separate node, together with the vehicle generator. AVs can ask the environment for information, and they can communicate with their neighbors \footnote{For a definition of ``neighbors'', see in Chapter~\ref{ch:analysis}, in assumptions section. Where the message delivery assumption is described .}.
 
 \begin{figure}
 	\centering
 	\includegraphics[width=0.8\linewidth]{physical_architecture.pdf}
-	\caption{Physical architecture: Environment and Autonomous Vehicles (AV).}
+	\caption{Physical architecture: Environment, Generator, and Autonomous Vehicles (AV).}
 	\label{fig:physical-architecture}
 \end{figure}
 
-\section{Development plan}
-The proposed solution focuses on a very simplified version of what a real solution could be. In particular the aim is to produce a core solution which satisfies the requirements but that also doesn't contain more than necessary assumptions, and in particular that doesn't rely on non realistic ideas that can lead future development to a blind spot.
+
+\chapter{Implementation}
+The project is developed in \href{https://www.erlang.org/}{Erlang}.
+
+\chapter{Validation}
+
+
+\chapter{Conclusions}
+The proposed solution focuses on a very simplified version of what a real solution could be. In particular the aim is to produce a core solution which satisfies the requirements but that also does not contain more than necessary assumptions, and in particular that does not rely on non realistic ideas that can lead future development to a blind spot.
 
 If the core simplified part will be easily developed and validated, then some advancement can be pursued, for example:
 \begin{itemize}
@@ -220,16 +359,6 @@ If the core simplified part will be easily developed and validated, then some ad
 	\item Dynamically modify paths inside the crossroad if some position becomes unavailable;
 	\item Let more than one vehicle per time cross the intersection, maybe with an interface to a planner in order to find the best route (exploiting epistemic planning could be an interesting option).
 \end{itemize}
-
-
-%\chapter{Implementation}
-%The project is developed in \href{https://www.erlang.org/}{Erlang}.
-
-%\chapter{Validation}
-
-
-%\chapter{Conclusions}
-
 
 
 %\appendix
