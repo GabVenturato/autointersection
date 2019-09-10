@@ -221,6 +221,9 @@ So, main functions offered by this module are:
 	\item \texttt{get\_participants()} to simulate proximity sensors, cameras, and antennas; to ask the identity of vehicles at the verge of the intersection. 
 \end{itemize}
 
+\subsection{Generator}
+The generator aim is to generate pseudo-randomly an amount of vehicles and start them to test the solution proposed. So it offers a unique function \verb|generate([Prams])|, with some tunable parameters to manage the vehicle generation, such as: how many vehicle it has to generate, and the percentage of failures it has to cause.
+
 \section{Non functional requirements}
 The system does not handle byzantine processes nor cybersecurity issues.
 
@@ -256,7 +259,7 @@ The solution relies on two main modules, and a secondary one for tests.
 \section{Protocols and algorithms}
 This section describes the algorithm to solve the core part of the project. Moreover, some peculiar situation sequence diagrams are presented.
 
-\subsection{Intersection Crossing Algorithm}
+\subsection{Intersection Crossing Algorithm}\label{sec:intersection-crossing-algorithm}
 Vehicles queue up along the roads leading to an intersection awaiting for their turn to cross. The first vehicle of a queue is the vehicle at the verge of entering the intersection and we will call such vehicle a \emph{participant} of the intersection crossing algorithm.
 
 Note that this algorithm applies to generic intersections, just by adapting the representing graph. Moreover, it trivially guarantees the \emph{fairness} and \emph{liveness} requirements (thus it is also \emph{deadlock-free}), thanks to its round robin characteristic.
@@ -286,7 +289,7 @@ Additional details:
 \end{itemize}
 A leader election starts only when new participants do not receive an answer when asking to join the algorithm; or when, after the leader is gone (after completing the crossing, or due to a failure), remaining participants does not receive the message from the candidate, communicating it is the new leader.
 
-\subsubsection{Managing abnormal cases}
+\subsubsection{Managing abnormal cases}\label{subsec:abnormal-cases}
 
 All participants monitor only the leader, if it fails, everyone is expecting a message from the candidate, telling it is the new leader. If this not happens, a new election is started. Moreover:
 
@@ -345,7 +348,7 @@ The architecture is quite simple, a graphical representation is displayed in Fig
 
 
 \chapter{Implementation}
-The project is developed in \href{https://www.erlang.org/}{Erlang}.
+The project is developed in \href{https://www.erlang.org/}{Erlang}. For the development we used as much as possible OPTs offered by Erlang, since they speed up the work and offer a solid and well-tested starting base.
 
 \begin{figure}
 	\centering
@@ -356,9 +359,23 @@ The project is developed in \href{https://www.erlang.org/}{Erlang}.
 
 \section{Getting Started}
 \subsection{Project Structure}
-\subsection{Hands On}
+The project is organized in two different Erlang application: Vehicle and Environment. These can be found in the \verb|apps/| directory. Then there is the \verb|test/| directory which contains some scripts to start the tests (described in Chapter~\ref{ch:validation}), and the vehicle generator module. Last but not least there is the \verb|docker/| folder and the \verb|Dockerfile|, that are used to test the project with \href{https://www.docker.com/}{Docker} (even this is described in Chapter~\ref{ch:validation}).
 
-\section{Development Details}
+\subsection{Hands On}
+To handle the whole project is provided a \emph{makefile}, which lets to compile and clean the project, and provide also a couple of demos.
+
+Make commands are described here:
+\begin{itemize}
+	\item \verb|make demo| performs a demo with erlang nodes generated in local host.
+	\item \verb|make dockerdemo| performs a demo using Docker. Note that this commad will create some containers and a docker network on your computer. If you want to clean up everything later see \verb|make clean|.
+	\item \verb|make| (which is the same as \verb|make apps|) compiles just the apps: environment and vehicl.
+	\item \verb|make all| does what \verb|make| do, but it compiles also the generator module and gives the scripts the execution permissions.
+	\item \verb|make docker| does what \verb|make all| do, but it compiles also the Docker stuff.
+	\item  \verb|make clean| removes all compiled files, log directories, and Docker stuff.
+	\item  \verb|make distclean| removes the same as \verb|make clean|, plus it cleans also the report directory which contains latex files.
+\end{itemize}
+
+\section{Development Details: The Vehicle}
 
 \subsection{Vehicle system}
 
@@ -516,11 +533,34 @@ Returning to the step when the Coordinator requests the position type. If the Re
 The Coordinator uses the Communication Component in order to solve the intersection. The Communication Component contacts the intersection participants (vehicles at the entrances) and starts the intersection coordination (described in the next section). Once the vehicle is clear to move in the intersection, a notification is made to the Coordinator that the current position is \textit{free} and the algorithm takes on from (2).
 
 \subsection{Intersection Coordination}
+This module is the core of the crossing. Here is implemented the algorithm described in Section~\ref{sec:intersection-crossing-algorithm}. This module is an OTP \verb|gen_statem|.
 
-\subsection{Vehicle Generator}
+The main idea is to use as ID the couple \verb|(waiting_counter, nonce)|, where the nonce is a unique code for each vehicle (the Erlang node name), and the waiting counter is a counter that is zero when a vehicle approach the interception, and increases by one for each \verb|crossed| message it receives, i.e. every time the leader cross, the participants increase their counter. In this way, every time an election is performed, the priority goes to the ones that waited longer. 
 
+Moreover, is important to guarantee that no one steal the leader title to a candidate who received promotion from the previous leader --- as specified in Subsection~\ref{subsec:abnormal-cases}. To do so, when a leader pass the lead to the candidate, the candidate set its wait counter to $N$, where we define $N$ as the number of interception entrances. This guarantees what stated before, because no one can wait more than $N$, or better: every vehicle waiting counter reach at most $N - 1$. So, if an election is performed, the candidate will win for sure. Setting the counter to less than this can lead to problems.
 
-\chapter{Validation}
+Last important part is that since no one knows others IDs, it is necessary to exchange that information while performing the election, so the algorithm is developed as follows:
+
+\begin{itemize}
+	\item to start the election send election message with my ID, and start waiting for answers;
+	\item if an answer is received then this means there exists someone with an higher ID, and I start to wait for the coordinator message;
+	\item if an election message is received, see the ID inside, and compare it with mine. If the ID received is higher I start waiting for a coordinator message, otherwise I forward the election message to all participants, with my ID inside, and then, start waiting for answers;
+	\item if I don't receive any answer message, I understand I have the maximum ID, so I am the leader and I sen the coordinator message.
+\end{itemize}
+
+Some timeouts are necessary to develop this idea. All the details can be found in the code.
+
+\section{Development Details: Environment and Vehicle Generator}
+The Environment is an application where its core part is an OTP \verb|gen_server|, which act as a substitute of the vehicle sensors. It provides mainly the functions described in the functional requirements analysis.
+
+The interception graph is provided in a configuration file inside the \verb|config/| directory. The syntax is trivial, so starting from the configuration file provided is easy to build a different graph. Note that are not performed checks on the graph structure, so it is up to the user to provide a correct configuration file.
+
+To manage the graph, the \emph{digraph} Erlang module is used. In particular the route from the starting position until the destination is the shortest path between the two nodes in the graph.
+
+\bigskip
+The generator is a simple OTP \verb|gen_server|, which offers only the function \verb|start()|, with different tunable parameters. Details of this module are described in next chapter.
+
+\chapter{Validation}\label{ch:validation}
 The validation part consisted in three main phases. First of all the project was tested with few vehicles generated singularly into different shells, with Erlang nodes created on local machine. After the initial validation, simulating peculiar situation manually (software and mechanical failures, vehicles arrival at specific times, \dots), the software has undergone numerous tests with the help of the vehicle generator described in the previous chapter, even this with Erlang nodes on local machine. Finally, exploiting Docker facilities, we tested the project even in distributed containers on different hosts in a virtual network.
 
 The project has been tested on Fedora 30 with Erlang/OTP 21, and on Ubuntu 18.04 LTS with Erlang/OTP 22.
