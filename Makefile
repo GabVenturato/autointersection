@@ -5,14 +5,16 @@ ERL_OUT = apps/environment/ebin/*.beam apps/vehicle/ebin/*.beam test/ebin/*.beam
 apps: environment vehicle
 
 .PHONY: all
-all: apps
+all: apps test/ebin
 	@printf "\nCompile test suite:\n"
-	@mkdir test/ebin/
 	@cd test/ && erl -make
 	@printf "\nMake test scripts executable:\n"
 	chmod +x test/start_environment.sh
 	chmod +x test/start_vehicle.sh
 	chmod +x test/start_generator.sh
+
+test/ebin:
+	@mkdir test/ebin/
 
 .PHONY: environment
 environment:
