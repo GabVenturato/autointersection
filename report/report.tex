@@ -27,10 +27,10 @@ The solution proposed in this report is meant to be more general and as modular 
 
 \chapter{Introduction}\label{ch:intro}
 
-The problem to solve is the one in which some autonomous vehicles have to cross an intersection without being involved in road accidents. 
+The problem to solve is the one in which some autonomous vehicles have to cross an intersection without getting involved in road accidents. 
 
 The idea is to solve the problem for a generic intersection. The autonomous vehicles can not rely on a central server, they have to cooperate with each other to cross the intersection by taking decisions which ensure a \emph{fair} and \emph{safe} policy. In particular there are two components in the proposed solution: vehicles and the environment. The latter is necessary in this context in order to simulate sensors that are usually inside autonomous vehicles which allows them to interact with the environment (e.g. proximity sensors, GPS, cameras, etc\dots).
-The system is \emph{fault tolerant}, but neither byzantine processes nor cybersecurity hazards are taken in consideration, for simplification purpose.
+The system is \emph{fault tolerant}, but neither byzantine processes nor cybersecurity hazards are taken in consideration, for simplification purposes.
 
 The report starts by analysing the project: Chapter~\ref{ch:analysis} is devoted to use cases, functional and non-functional requirements, and system assumptions too. Chapter~\ref{ch:project} contains the description of the general architecture, and specific algorithms.
 
@@ -197,12 +197,12 @@ Each vehicle has an internal state at any moment. Moreover it:
 	\item if it is in the queue, it knows nothing else than its internal information and that it is taking part in a queue with someone before and possibly behind. It can communicate only with these two.
 	\item if it is at the head of the queue, it can connect with other vehicles (that are at the head of other queues) that are crossing the intersection.
 \end{itemize}
-So, main functions offered by this module are:
+Therefore the main functions offered by this module are:
 
 \begin{itemize}
 	\item \texttt{startup()} to start the vehicle.
 	\item \texttt{stop()} to stop the vehicle.
-	\item \texttt{cause\_mechanical\_failure()} and \texttt{cause\_software\_failure()}, to cause failures; these are useful to test simulating failures.
+	\item \texttt{cause\_mechanical\_failure()} and \texttt{cause\_software\_failure()}, to cause failures; these are useful in testing to simulate failures.
 	\item \texttt{send\_message(To,Msg)} to communicate with other vehicles.
 	\item \texttt{move()} to move one step forward.
 	\item \texttt{check\_next\_position()} to check if the position it is willing to move is free.
@@ -212,12 +212,12 @@ So, main functions offered by this module are:
 \subsection{Environment}
 The environment represent the vehicle ability to use its sensors. It knows the intersection shape and dimension; it knows vehicles approaching the crossroads and the ones in the queues; it provides vehicles with all the information they need to safely circulate within the environment.
 
-So, main functions offered by this module are:
+The main functions offered by this module are:
 
 \begin{itemize}
 	\item \texttt{is\_position\_free(Pos)} to simulate proximity sensors; check if a specific position is free.
 	\item \texttt{update\_position(Vehicle,OldPos,NewPos)} to update its internal state moving the vehicle from the old position into the new one.
-	\item \texttt{get\_route(StartPos,DestPos)} to simulate the GPS; a vehicle that is going to start its journey ask the environment which is the route it has to travel.
+	\item \texttt{get\_route(StartPos,DestPos)} to simulate the GPS; a vehicle that is starting its journey asks the environment which is the route it has to travel.
 	\item \texttt{get\_participants()} to simulate proximity sensors, cameras, and antennas; to ask the identity of vehicles at the verge of the intersection. 
 \end{itemize}
 
@@ -226,7 +226,7 @@ The system does not handle byzantine processes nor cybersecurity issues.
 
 \begin{itemize}
 	\item \emph{Safeness}: there can not be more than a vehicle in the same position at the same time;
-	\item \emph{Liveness}: if a vehicle approaches the intersection and is waiting to cross it, eventually it will cross it;
+	\item \emph{Liveness}: if a vehicle approaches the intersection and is waiting to cross it, it will eventually cross it;
 	\item \emph{Fairness}: if a vehicle approaches the intersection and is waiting to cross it, there exists a bound to the waiting time;
 	\item \emph{Fault Tolerant}: the system is tolerant to mechanical and software failures;
 	\item \emph{Distributed}: there is no central server, vehicles have to coordinate each other.
@@ -241,9 +241,9 @@ This chapter is devoted to the description of the general architecture, and spec
 The solution relies on two main modules, and a secondary one for tests.
 
 \begin{itemize}
-	\item \emph{Vehicle}: it is represented as a finite state automaton. A graphical representation can be seen in Figure~\ref{fig:vehicle-automaton}. Each state represents a situation in which the vehicle can find itself. A vehicle is in the \emph{Init} state when it has just approached the intersection. It is in the \emph{Ready} state when it is at the verge and has identified the participants. It is in \emph{Election} when it is performing the election algorithm to choose who will be the one to cross. \emph{Crossing} when it is crossing the interception, and \emph{Terminate} when it has finished the crossing. When a mechanical failure happens, it notifies the event to its neighbors and then terminate; so a crash state is not needed.
-	\item \emph{Environment}: it represents the physical environment accessible through autonomous vehicle sensors.
-	\item \emph{Vehicle Generator}: it is a module aimed to (pseudo-)randomly generate vehicles that approach the intersection, and it is used to test and validate the solution proposed.
+	\item \emph{Vehicle}: represented as a finite state automaton. A graphical representation can be seen in Figure~\ref{fig:vehicle-automaton}. Each state represents a situation in which the vehicle can find itself. A vehicle is in the \emph{Init} state when it has just approached the intersection. It is in the \emph{Ready} state when it is at the verge and has identified the participants. It is in \emph{Election} when it is performing the election algorithm to choose who will be the one to cross. \emph{Crossing} when it is crossing the interception, and \emph{Terminate} when it has finished the crossing. When a mechanical failure happens, it notifies the event to its neighbors and then terminate; so a crash state is not needed.
+	\item \emph{Environment}: represents the physical environment accessible through the autonomous vehicle's sensors.
+	\item \emph{Vehicle Generator}: a module aimed to (pseudo-)randomly generate vehicles that approach the intersection, and it is used to test and validate the proposed solution.
 \end{itemize}
 
 \begin{figure}
@@ -292,8 +292,8 @@ All participants monitor only the leader, if it fails, everyone is expecting a m
 
 \begin{itemize}
 	\item If the leader fails, the vehicle in clockwise order after him becomes the new leader --- identifying also the next candidate leader --- and the algorithm restarts from 3.
-	\item If the leader fails while crossing, a timeout $T$ is needed before it is removed from the intersection. Meanwhile a new election can start, and the new leader can start crossing, but it has to stop if the position in front of him is still occupied from the previous faulty leader, until the position has been freed.
-	\item Some peculiar situations can happen for example when a new vehicle arrives at the interception while the leader is gone and it is passing the leading to the candidate. It the new vehicle arrives at an unfortunate moment, it could receive no answers when asking who is the leader, and so starting a new election. The risk is that the candidate can become leader, and after a while someone else can win the election, stealing its role of leader. This can lead to disastrous scenarios, in which more than a vehicle start crossing. To avoid this, it is \emph{necessary} that a candidate receiving the role from the previous leader, in case of a sudden election, it turns out to be the winner. So, no one can steal the leading from anyone else. This is guaranteed with an appropriate implementation, described in the next chapter.
+	\item If the leader fails while crossing, a timeout $T$ is needed before it is removed from the intersection. Meanwhile a new election can start, and the new leader can start crossing, but it has to stop if the position in front of him is still occupied from the previous faulty leader, until the position gets liberated.
+	\item Some peculiar situations can happen for example when a new vehicle arrives at the interseption while the leader is gone and it is passing the lead to the candidate. It the new vehicle arrives at this unfortunate moment, it could receive no answers when asking who is the leader, and so it starts a new election. The risk is that the candidate can become leader, and after a while someone else can win the election, stealing its role of leader. This can lead to disastrous scenarios, in which more than a vehicle starts crossing. To avoid this, it is \emph{necessary} that a candidate receiving the role from the previous leader, in case of a sudden election, it turns out to be the winner. So, no one can steal the lead from anyone else. This is guaranteed with an appropriate implementation, described in the next chapter.
 \end{itemize}
 
 \subsection{Sequence Diagrams}
