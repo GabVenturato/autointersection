@@ -14,3 +14,5 @@ rel/example_project
 
 try/
 log/
+
+docker_log/

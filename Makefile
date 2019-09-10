@@ -31,12 +31,37 @@ demo: all
 	@printf "\n- failures will be 50%% software and 50%% mechanical"
 	@printf "\n- failures will be triggered before 20s from vehicle start"
 	@printf "\n\nStop with ctrl+C and then (a)bort\n"
+	@printf "Logs availabe in \'log/\' directory\n"
 	@./test/start_generator.sh 42 0.2 0.5 20000
+
+.PHONY: docker
+docker: all
+	@printf "\nBuild docker:\n"
+	docker build -t erlang-autointersection:1.0 .
+	@printf "\nMake docker scripts executable:\n"
+	chmod +x docker/start_docker.sh
+	chmod +x docker/stop_docker.sh
+	chmod +x docker/clean_docker.sh
+
+.PHONY: dockerdemo
+dockerdemo: docker
+	@printf "\nDOCKER DEMO:"
+	@printf "\n- vehicles generated: 10"
+	@printf "\n- failure ratio: 20%%"
+	@printf "\n- failures will be 50%% software and 50%% mechanical"
+	@printf "\n- failures will be triggered before 20s from vehicle start"
+	@printf "\n\nStop with ctrl+C and then (a)bort\n"
+	@printf "Logs availabe in \'docker_log/\' directory\n\n"
+	@./docker/start_docker.sh 10 0.2 0.5 20000
 
 .PHONY: clean
 clean:
 	rm -rf $(ERL_OUT) *.dump log
+	@printf "\nClean docker:\n"
+	@./docker/clean_docker.sh
 
 .PHONY: distclean
 distclean:
 	rm -rf $(LATEX_OUT) $(ERL_OUT) *.dump log
+	@printf "\nClean docker:\n"
+	@./docker/clean_docker.sh
