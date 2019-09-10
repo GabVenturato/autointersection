@@ -1,10 +1,5 @@
-%%% This module represents a generic AV component that logs internal vehicle
-%%% events. 
-%%% All internal logging should be handled by this module:
-%%% - the module can start new processes in order to handle more complex tasks
-%%% - the component must report important events to the event manager only!
-%%% Communication between various AV's components is handled only through
-%%% the event manager by means of event notifications.
+%%% This module is responsible for updating the testing environment with
+%%% the vehicle's transitions.
 
 -module(env_testing_component).
 -behavior(gen_server).

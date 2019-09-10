@@ -1,3 +1,6 @@
+%% This event handler is used by the env_testing_component in order to
+%% notify the testing environment about vehicle state transitions.
+
 -module(env_testing_event_handler).
 -behavior(gen_event).
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, code_change/3,

@@ -45,10 +45,12 @@ handle_cast({move, Position}, State) ->
   begin_moving(Position, State),
   {noreply, State};
 
+% Received that the vehicle at the specified position is Result.
 handle_cast({vehicle_at, {Position, Result}}, State) ->
   verify_position(Position, Result, State),
   {noreply, State};
 
+% Received position update about the position in front.
 handle_cast({position_update, {Update, Ref}}, State) ->
   position_update(Update, Ref, State),
   {noreply, State};
@@ -71,11 +73,11 @@ handle_info({'DOWN', MonitorReference, process, Pid, Reason}, State) ->
 
 
 handle_info(Msg, State) ->
-    internal:a_log(State#component.event_manager,
-                   warn,
-                   ?MODULE,
-                   lists:concat(["Unknown msg: ", Msg])),
-    {noreply, State}.
+  internal:a_log(State#component.event_manager,
+                  warn,
+                  ?MODULE,
+                  lists:concat(["Unknown msg: ", Msg])),
+  {noreply, State}.
 
 terminate(_Reason, State) ->
   remove_event_handler(State#component.event_manager, State#component.handler),

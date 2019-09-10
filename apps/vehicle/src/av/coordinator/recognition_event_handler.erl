@@ -1,5 +1,5 @@
-%%% This module is the event handler for a process listening to recognition
-%%% events sent by the AV's recognition component.
+%%% This module is the event handler for the coordinator listening to recognition
+%%% events sent by the recognition component.
 
 -module(recognition_event_handler).
 -behavior(gen_event).

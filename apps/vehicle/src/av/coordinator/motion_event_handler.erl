@@ -1,5 +1,5 @@
-%%% This module is the event handler for a process listening to motion
-%%% events sent by the AV's motion component.
+%%% This module is the event handler for the coordinator listening to motion
+%%% events sent by the motion component.
 
 -module(motion_event_handler).
 -behavior(gen_event).

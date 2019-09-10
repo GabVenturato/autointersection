@@ -1,6 +1,5 @@
-%%% Not yet implemented! Unnecessary, kept only for completeness.
-%%% This module is the event handler for a process listening to communication
-%%% events sent by the AV's communication component.
+%%% This module is the event handler for the coordinator listening to communication
+%%% events sent by the communication component.
 
 -module(communication_event_handler).
 -behavior(gen_event).

@@ -1,5 +1,5 @@
 %%% This module is the event handler for the motion component listening to
-%%% events sent by the AV server.
+%%% relevant events.
 
 -module(mot_event_handler).
 -behavior(gen_event).

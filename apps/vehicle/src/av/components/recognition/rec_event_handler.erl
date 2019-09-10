@@ -1,5 +1,5 @@
 %%% This module is the event handler for the recognition component listening to 
-%%% events sent by the AV server.
+%%% relevant events.
 
 -module(rec_event_handler).
 -behavior(gen_event).

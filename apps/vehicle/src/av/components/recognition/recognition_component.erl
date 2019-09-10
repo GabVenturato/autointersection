@@ -39,6 +39,7 @@ init([CompDetails]) ->
   register_event_handler(CompDetails#component.event_manager, ?EVENT_HANDLER_ID),
   {ok, CompDetails#component{handler = ?EVENT_HANDLER_ID}}.
 
+% Received msg to check a specific position for its type.
 handle_call({position_type, Position}, _From, State) ->
   Pid = State#component.event_manager,
   Type = get_position_type(State#component.probe, Position),

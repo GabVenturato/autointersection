@@ -1,5 +1,5 @@
-%%% This module is the event handler for the communication component listening to
-%%% events sent by the AV server.
+%%% This module is the event handler for the intersection coordination action
+ %%% listening to relevant events.
 
 -module(ic_event_handler).
 -behavior(gen_event).

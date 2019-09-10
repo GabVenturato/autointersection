@@ -59,6 +59,7 @@ init([CompDetails]) ->
 
 handle_call(_, _From, State) -> {reply, ok, State}.
 
+% Position type received, now handle the cases.
 handle_cast({handle_position_type, Type}, State) ->
   case Type of
     intersection_entrance ->
@@ -71,6 +72,7 @@ handle_cast({handle_position_type, Type}, State) ->
   end,
   {noreply, State};
 
+% Check who is at the specified position.
 handle_cast({who_is_at, Position}, State) ->
   Pid = State#component.probe,
   Result = get_vehicle_at(Pid, Position),
@@ -78,6 +80,7 @@ handle_cast({who_is_at, Position}, State) ->
                  notification, vehicle_at, {Position, Result}),
   {noreply, State};
 
+% Notify the environment about a vehicle down (sw failure).
 handle_cast({vehicle_down, Vehicle}, State) ->
   Pid = State#component.probe,
   signal_vehicle_down(Pid, Vehicle),
@@ -111,9 +114,11 @@ start_intersection_coordination(State) ->
   {ok, SupPid} = supervisor:start_child(State#component.supervisor, ?SUP_SPEC([])),
   supervisor:start_child(SupPid, ?INTER_CROSS_SPEC([Probe, EvMan])).
 
+%% Returns the pid of the vehicle at the specified position.
 get_vehicle_at(Pid, Position) ->
   gen_server:call(Pid, {vehicle_at, Position}).
 
+%% Signals to the environment that the vehicle is down.
 signal_vehicle_down(Pid, Vehicle) ->
   gen_server:cast(Pid, {vehicle_down, Vehicle}).
 

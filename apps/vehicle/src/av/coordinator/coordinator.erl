@@ -1,3 +1,12 @@
+%%% The coordinator represents the logic and reasoning of the system, 
+%%% coordinating the various components in order to achieve the vehicle’s goals.
+%%% The coordinator listens for internal events of interest by registering 
+%%% event listeners on the event manager (just like components do).
+%%% Specific internal events trigger the coordinator’s actions which, in turn, 
+%%% produce new internal events addressed to specific components. 
+%%% This behavior of recognizing specific events and addressing specific 
+%%% components is what drives the vehicle towards its goals.
+
 -module(coordinator).
 -behavior(gen_server).
 
@@ -94,6 +103,7 @@ init([Sup, Route, Components]) ->
   self() ! {initialize_vehicle, Sup, Components},
   {ok, #state{supervisor = Sup}}.
 
+% Vehicle startup message received, start the vehicle!
 handle_info(startup, State) ->
   internal:log(
     State#state.event_manager, 
@@ -121,9 +131,11 @@ handle_info({initialize_vehicle, Components}, State) ->
   {noreply, State#state{event_manager = EvMan,
                            event_handlers = EventHandlers}};
 
+%% Update the vehicle's route.
 handle_info({update_route, Route}, State) ->
   {noreply, State#state{route = Route}};
 
+%% Initialize the required component for updating the testing environment.
 handle_info({start_env_testing_component, Component}, State) ->
   Sup = State#state.supervisor,
   EvMan = State#state.event_manager,
@@ -137,7 +149,7 @@ handle_info(Msg, State) ->
                lists:concat(["Unknown msg: ", Msg])),
   {noreply, State}.
 
-%% Deal with position type.
+%% Position type received, now deal with different cases.
 handle_call({position_type, Type}, _From, State) ->
   Pid = State#state.event_manager,
   case Type of
@@ -172,6 +184,7 @@ handle_cast(moved, State) ->
   check_positon_type(EvMan, current_position(NewRoute)),
   {noreply, State#state{route = NewRoute}};
 
+%% Cause vehicle breakdown (mechanical failure).
 handle_cast(breakdown, State) ->
   % Sup = State#state.supervisor,
   EvMan = State#state.event_manager,
