@@ -68,6 +68,6 @@ docker exec -it main /bin/bash test/start_generator.sh $NUMBER_OF_VEHICLES \
                                                        $REL_SW_FAIL_RATIO \
                                                        $MAX_FAIL_TIMEOUT \
                                                        $NODE_LIST \
+                                                       longnames \
                                                        $MAIN \
-                                                       $COOKIE_NAME \
-                                                       longnames
+                                                       $COOKIE_NAME
