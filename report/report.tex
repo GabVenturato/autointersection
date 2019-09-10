@@ -347,8 +347,29 @@ The architecture is quite simple, a graphical representation is displayed in Fig
 \chapter{Implementation}
 The project is developed in \href{https://www.erlang.org/}{Erlang}.
 
-\chapter{Validation}
+\section{Getting Started}
+\subsection{Project Structure}
+\subsection{Hands On}
 
+\section{Development Details}
+
+\subsection{Intersection Coordination}
+
+\subsection{Vehicle Generator}
+
+
+\chapter{Validation}
+The validation part consisted in three main phases. First of all the project was tested with few vehicles generated singularly into different shells, with Erlang nodes created on local machine. After the initial validation, simulating peculiar situation manually (software and mechanical failures, vehicles arrival at specific times, \dots), the software has undergone numerous tests with the help of the vehicle generator described in the previous chapter, even this with Erlang nodes on local machine. Finally, exploiting Docker facilities, we tested the project even in distributed containers on different hosts in a virtual network.
+
+The project has been tested on Fedora 30 with Erlang/OTP 21, and on Ubuntu 18.04 LTS with Erlang/OTP 22.
+
+After careful planning and developing, and after all these tests phases, we are confident of providing a reliable and sound solution. In next sections is described how to reproduce the tests.
+
+\section{Simple Tests}
+
+\section{Vehicle Generator}
+
+\section{Docker}
 
 \chapter{Conclusions}
 The proposed solution focuses on a very simplified version of what a real solution could be. In particular the aim is to produce a core solution which satisfies the requirements but that also does not contain more than necessary assumptions, and in particular that does not rely on non realistic ideas that can lead future development to a blind spot.
@@ -360,9 +381,6 @@ If the core simplified part will be easily developed and validated, then some ad
 	\item Let more than one vehicle per time cross the intersection, maybe with an interface to a planner in order to find the best route (exploiting epistemic planning could be an interesting option).
 \end{itemize}
 
-
-%\appendix
-
-%\chapter{Appendix}
+\section{Partial implementation and future work}
 
 \end{document}
