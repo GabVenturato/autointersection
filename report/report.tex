@@ -360,6 +360,161 @@ The project is developed in \href{https://www.erlang.org/}{Erlang}.
 
 \section{Development Details}
 
+\subsection{Vehicle system}
+
+The vehicle system architecture follows the event-based multi-agent architecture where the only source of events are vehicles (agents) and the environment.
+Such architecture will greatly help in dealing with accidental complexity, changing requirements, security and performance.
+
+
+Vehicles represent the main source of events, autonomously driving control towards their own goals, and producing internal events through their actions.
+The environment and other vehicles model the external events. External events are captured by the vehicle's devices such as sensors, sonars, camera systems, receivers, transmitters, etc.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.7\linewidth]{implementation_details/vehicle_high-level_architecture.pdf}
+	\caption{Vehicle system architecture: Coordinator, Event Manager, and Components with Probes attached.}
+	\label{fig:vehicle-architecture}
+\end{figure}
+
+The main elements of the architecture are the Coordinator, the Event Manager and various components that provide a specific service.
+Vehicle components communicate by producing and receiving event notifications. All of the vehicle's functionality is split among the components: each component is responsible for delivering a specific service to the vehicle.
+
+Components can be connected to sensors and other external devices in order to successfully deliver their functionality. External devices are referred to as probes.
+The responsibility of probes is to collect external events from the environment or other vehicles and forward them to the component to which they are attached to.
+External events received by components and translated them into internal events.
+
+
+The Coordinator listens to specific internal events in order to coordinate the components to reach the vehicle's goal.
+
+\subsection{Architecture elements}
+
+This subsection presents the architectural elements: Event Manager, Components and the Coordinator. Figure ~\ref{fig:erlang-point-of-view} shows the supervision tree implemented in Erlang with all the architectural elements.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\linewidth]{implementation_details/erlang_point-of-view.pdf}
+	\caption{The implemented vehicle system supervision tree (Erlang point of view).}
+	\label{fig:erlang-point-of-view}
+\end{figure}
+
+\subsubsection{Event Manager}
+
+Components communicate by sending event notifications to the Event Manager.
+Being not real messages, events have not a designed receiver: they are distributed by the Event Manager to Components that subscribed to that sort of events.
+
+The Event Manager acts as a middleware, inverting the logic of program execution, where a component does not need to know the existence of other components to provide its service and thus facilitatates the addition of new features and components.
+
+\subsubsection{Components}
+
+Components are the only providers of functionality. Each component delivers a specific functionality to the system.
+
+Components can be \textit{passive} or \textit{active}. Passive components do not generate internal events and their sole purpose is to listen to internal events and act accordingly. An example of a passive component is the Logging Component which listens for specific internal events and logs them onto a file.
+
+Active components are components that generate internal events. For example the Communication Component, whose sole purpose is to handle communication between vehicles, is required by components that need Vehicle-to-Vehicle (V2V) communication services.
+\\
+
+\textit{Note that both active and passive components are capable of performing actions, changing their state and communicating with their devices except that passive components cannot interfere with the event flow of the vehicle because they don't generate internal events.}
+\\
+
+Components can have multiple devices attached (sensors, receivers, transmitters, etc.) in order to detect external events and provide their functionality.
+
+Components help to address the issues of event aggregation and transformation by making event notifications meaningful at the level of interpretation required for making other components activities effective. They effectively act as event mediators (or, correlators), translating external events into meaningful internal events.
+\\
+\newline
+\textbf{Component Structure}
+\\
+\newline
+The structure of a component consists of: 
+\begin{itemize}
+	\item component module (mandatory)
+	\item event listener (optional)
+\end{itemize}
+
+\underline{The component module:}
+\\
+The component module maintains all the logic related to the specific service it is built for, for example a component in charge of the navigation system deals with navigation related tasks only.
+
+The component module can be connected to zero or more devices in order to provide its services, for example the navigation component can use a GPS device to gather geolocation data. 
+\\
+
+When needed, components can spawn additional processes called Actions to perform more advanced and complicated tasks (Actions can also be used for enabling the selection of algorithms at runtime, effectively letting the algorithm vary independently from the component, a strategy pattern in OO terms).
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.7\linewidth]{implementation_details/component_and_action.pdf}
+	\caption{Part of the overall supervision tree showing components with their actions and their relative Action Supervisor}
+	\label{fig:component-and-action}
+\end{figure}
+
+Picture ~\ref{fig:component-and-action} shows a component with its actions in the supervision tree. Actions are attached to a specific supervisor (the Action Supervisor) which is unique for each component.
+\\
+
+\underline{The event Listener:}
+
+
+A component module may have zero or more event listeners attached to the Event Manager. Event listeners are responsible for listening and forwarding internal events that are of interest to the component module.
+
+A component that provides a service must have an event listener in order to receive requests from other components. Event listeners are event handlers in Erlang terminology.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.7\linewidth]{implementation_details/components_event_listeners.pdf}
+	\caption{Components with Event Listeners registered on the Event Manager}
+	\label{fig:component-event-listeners}
+\end{figure}
+
+
+Figure ~\ref{fig:component-event-listeners} shows how event listeners are attached to components and registered on the Event Manager.
+Note that Component4 doesn't have any event listener, which is a perfectly valid situation.
+
+\subsubsection{Coordinator}
+
+The Coordinator represents the logic and reasoning of the system, coordinating the various components in order to achieve the vehicle’s goals.
+
+The Coordinator listens for internal events of interest by registering event listeners on the Event Manager (just like components do).
+Specific internal events trigger the Coordinator's actions which, in turn, produce new internal events addressed to specific components. 
+
+This behaviour of recognising specific events and addressing specific components is what drives the vehicle towards its goals.
+
+\subsubsection{The general flow of events}
+
+Once the vehicle has been initialized and the startup message received the vehicle can begin to move. 
+\\
+
+(1)The Coordinator starts by asking the Recognition Component about the position type it is currently on. 
+\\
+
+There can be 2 basic position types (although the implementation provides significantly more) a \textit{free} position and a \textit{stop} position.
+
+A \textit{free} position is any position onto which the vehicle is free to advance (for example, it is on a public road), where as a \textit{stop} position is a position that requires the vehicle to stop and resolve the situation (for example, an intersection entrance, an obstacle on the road, a 
+car accident in front, etc).
+\\
+
+The Recognition Component utilises, for example, a camera system to detect the position type and returns the answer to the Coordinator.
+\\
+
+If the answer is \textit{free}, the Coordinator requests the Motion Component to check the position in front whether the vehicle is safe to advance.
+If the answer is \textit{stop} the vehicle has to stop and resolve the problem. For the sake of simplicity (and, for the scope of this project) we assume that a position has type \textit{stop} if the vehicle is at the entrance to an intersection.
+\\
+
+ (2)Suppose that the Recognition Component's answer was \textit{free}, the Coordinator requests the Motion Component to verify the position in front. The Motion Component uses a proximity sensor to check whether the position in front is clear or occupied. The answer is provided to the Coordinator.
+\\
+
+If the answer is \textit{clear}, the vehicle advances in the next position. If the answer is \textit{occupied} the vehicle has to realise what is in front. For the scope of this project, we assume that only vehicles can be on the road. Therefore the vehicle tries to communicate with the vehicle in front, in order to check its health. The Coordinator requests the Communication Component to contact the vehicle in front.
+\\
+
+The Communication Component can use, for example, a Bluetooth device or a Wifi device to communicate with the vehicle in front (for example, send a broadcast with a message: "Who is at position X?"). The vehicle in front can either respond to the call, or, if it has software crashed, not respond at all. An answer is provided to the Coordinator.
+\\
+
+The Coordinator can either receive that the vehicle in front is \textit{up} (software is running correctly and the vehicle is waiting in a queue) or  \textit{down} (the vehicle in front has software crashed). If the vehicle in front is \textit{up}, the vehicle awaits in queue for the vehicle in front to move. If the vehicle in front is \textit{down} the vehicle calls a tow truck to remove the vehicle in front and awaits its removal.
+In either cases, after a period of waiting, the vehicle moves in the position in front and the algorithm starts from (1).
+\\
+
+Returning to the step when the Coordinator requests the position type. If the Recognition Component’s answer is \textit{stop}, the vehicle is at the entrance to an intersection (for the reasons stated above) and has to stop to resolve the intersection crossing with vehicles at the other entrances in order to avoid potential collisions.
+\\
+
+The Coordinator uses the Communication Component in order to solve the intersection. The Communication Component contacts the intersection participants (vehicles at the entrances) and starts the intersection coordination (described in the next section). Once the vehicle is clear to move in the intersection, a notification is made to the Coordinator that the current position is \textit{free} and the algorithm takes on from (2).
+
 \subsection{Intersection Coordination}
 
 \subsection{Vehicle Generator}
