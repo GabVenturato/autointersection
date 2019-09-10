@@ -1,5 +1,5 @@
 %%% This module is the event handler for the communication component listening to
-%%% events sent by the AV server.
+%%% relevant events.
 
 -module(com_event_handler).
 -behavior(gen_event).
