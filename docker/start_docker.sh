@@ -9,7 +9,7 @@ EBIN="$VEHICLE_EBIN $GENERATOR_EBIN"
 
 if [[ ( $# -lt 2 ) || ( $# -gt 4 ) ]]
 then
-	echo "command usage: start.sh <vehicle number> <fail ratio> <relaive sw fail ratio> <max fail timeout (ms)>"
+	echo "command usage: start_docker.sh <vehicle number> <fail ratio> <relaive sw fail ratio> <max fail timeout (ms)>"
 	exit 1
 fi
 
