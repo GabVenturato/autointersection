@@ -7,6 +7,7 @@ apps: environment vehicle
 .PHONY: all
 all: apps
 	@printf "\nCompile test suite:\n"
+	@makedir test/ebin/
 	@cd test/ && erl -make
 	@printf "\nMake test scripts executable:\n"
 	chmod +x test/start_environment.sh
