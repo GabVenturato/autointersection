@@ -174,7 +174,7 @@ Further assumptions are:
 
 \begin{itemize}
 	\item \emph{Faults}: at any moment a failure can arise in vehicles --- software or mechanical. A mechanical failure does not compromise the software abilities, but a software failure implies a mechanical failure. So we can assume that if the software fails, the autonomous vehicle stops and goes in ``emergency mode''. It is also assumed that if a crash happens, it must be managed by removing the faulty vehicle with a tow truck (or something similar).
-	\item \emph{Moves}: the path that a vehicle can take inside the interception is predefined and known a priori. From each position there is a unique path to each destination, and no one can modify or choose a different path once decided. A visual representation of this assumption can be found in Figure~\ref{fig:intersection-graph}, in which green dots represent positions occupied while crossing, and light-blue dots are the destinations. Once a vehicle reaches its destination, it is considered ``satisfied'', and can not fail anymore, it can only move forward on its own way. Reversing is not allowed.
+	\item \emph{Moves}: the path that a vehicle can take inside the intersection is predefined and known a priori. From each position there is a unique path to each destination, and no one can modify or choose a different path once decided. A visual representation of this assumption can be found in Figure~\ref{fig:intersection-graph}, in which green dots represent positions occupied while crossing, and light-blue dots are the destinations. Once a vehicle reaches its destination, it is considered ``satisfied'', and can not fail anymore, it can only move forward on its own way. Reversing is not allowed.
 	\item \emph{Message Delivery}: each vehicle can communicate with its immediate neighbors, i.e. the vehicle in front, the one behind it, and if it is at the verge of the crossroads, it can communicate with the others at the verge, and with crossing vehicles. Therefore it's assumed that there exist an upper bound time in message passing between two vehicles. This is justified by the fact that all connection are almost direct, without routers or broker that can cause bottle-necks or network congestion.
 \end{itemize}
 
@@ -194,8 +194,8 @@ Each vehicle has an internal state at any moment. Moreover it:
 \begin{itemize}
 	\item knows its position and what happens around, through the environment (in a real context this is handled by sensors like GPS and proximity sensors): it can detect if there are other vehicles trying to cross, or if there is a vehicle in front or behind it.
 	\item communicates with its neighbors by sharing: the direction it wants to travel, its internal state, the next position he is about to reach.
-	\item if it is in the queue, it knows nothing else than its internal information and that it is taking part in a queue with someone before and possibly behind. It can communicate only with these two.
-	\item if it is at the head of the queue, it can connect with other vehicles (that are at the head of other queues) that are crossing the intersection.
+	\item when in the queue, it knows nothing else than its internal information and that it is taking part in a queue with someone before and possibly behind. It can communicate only with these two.
+	\item at the head of the queue, it can connect with other vehicles (that are at the head of other queues) that are crossing the intersection.
 \end{itemize}
 Therefore the main functions offered by this module are:
 
@@ -222,7 +222,7 @@ The main functions offered by this module are:
 \end{itemize}
 
 \subsection{Generator}
-The generator aim is to generate pseudo-randomly an amount of vehicles and start them to test the solution proposed. So it offers a unique function \verb|generate([Prams])|, with some tunable parameters to manage the vehicle generation, such as: how many vehicle it has to generate, and the percentage of failures it has to cause.
+The aim of the generator is to generate pseudo-randomly an amount of vehicles and start them to test the solution proposed. So it offers a unique function \verb|generate([Prams])|, with some tunable parameters to manage the vehicle generation, such as: how many vehicle it has to generate, and the percentage of failures it has to cause.
 
 \section{Non functional requirements}
 The system does not handle byzantine processes nor cybersecurity issues.
@@ -244,7 +244,7 @@ This chapter is devoted to the description of the general architecture, and spec
 The solution relies on two main modules, and a secondary one for tests.
 
 \begin{itemize}
-	\item \emph{Vehicle}: represented as a finite state automaton. A graphical representation can be seen in Figure~\ref{fig:vehicle-automaton}. Each state represents a situation in which the vehicle can find itself. A vehicle is in the \emph{Init} state when it has just approached the intersection. It is in the \emph{Ready} state when it is at the verge and has identified the participants. It is in \emph{Election} when it is performing the election algorithm to choose who will be the one to cross. \emph{Crossing} when it is crossing the interception, and \emph{Terminate} when it has finished the crossing. When a mechanical failure happens, it notifies the event to its neighbors and then terminate; so a crash state is not needed.
+	\item \emph{Vehicle}: represented as a finite state automaton. A graphical representation can be seen in Figure~\ref{fig:vehicle-automaton}. Each state represents a situation in which the vehicle can find itself. A vehicle is in the \emph{Init} state when it has just approached the intersection. It is in the \emph{Ready} state when it is at the verge and has identified the participants. It is in \emph{Election} when it is performing the election algorithm to choose who will be the one to cross. \emph{Crossing} when it is crossing the intersection, and \emph{Terminate} when it has finished the crossing. When a mechanical failure happens, it notifies the event to its neighbors and then terminate; so a crash state is not needed.
 	\item \emph{Environment}: represents the physical environment accessible through the autonomous vehicle's sensors.
 	\item \emph{Vehicle Generator}: a module aimed to (pseudo-)randomly generate vehicles that approach the intersection, and it is used to test and validate the proposed solution.
 \end{itemize}
@@ -296,7 +296,7 @@ All participants monitor only the leader, if it fails, everyone is expecting a m
 \begin{itemize}
 	\item If the leader fails, the vehicle in clockwise order after him becomes the new leader --- identifying also the next candidate leader --- and the algorithm restarts from 3.
 	\item If the leader fails while crossing, a timeout $T$ is needed before it is removed from the intersection. Meanwhile a new election can start, and the new leader can start crossing, but it has to stop if the position in front of him is still occupied from the previous faulty leader, until the position gets liberated.
-	\item Some peculiar situations can happen for example when a new vehicle arrives at the interseption while the leader is gone and it is passing the lead to the candidate. It the new vehicle arrives at this unfortunate moment, it could receive no answers when asking who is the leader, and so it starts a new election. The risk is that the candidate can become leader, and after a while someone else can win the election, stealing its role of leader. This can lead to disastrous scenarios, in which more than a vehicle starts crossing. To avoid this, it is \emph{necessary} that a candidate receiving the role from the previous leader, in case of a sudden election, it turns out to be the winner. So, no one can steal the lead from anyone else. This is guaranteed with an appropriate implementation, described in the next chapter.
+	\item Some peculiar situations can happen for example when a new vehicle arrives at the intersection while the leader is gone and it is passing the lead to the candidate. It the new vehicle arrives at this unfortunate moment, it could receive no answers when asking who is the leader, and so it starts a new election. The risk is that the candidate can become leader, and after a while someone else can win the election, stealing its role of leader. This can lead to disastrous scenarios, in which more than a vehicle starts crossing. To avoid this, it is \emph{necessary} that a candidate receiving the role from the previous leader, in case of a sudden election, it turns out to be the winner. So, no one can steal the lead from anyone else. This is guaranteed with an appropriate implementation, described in the next chapter.
 \end{itemize}
 
 \subsection{Sequence Diagrams}
@@ -348,7 +348,7 @@ The architecture is quite simple, a graphical representation is displayed in Fig
 
 
 \chapter{Implementation}
-The project is developed in \href{https://www.erlang.org/}{Erlang}. For the development we used as much as possible OPTs offered by Erlang, since they speed up the work and offer a solid and well-tested starting base.
+The project is developed in \href{https://www.erlang.org/}{Erlang}. For the development we used as much as possible the OPTs offered by Erlang, since they speed up the development and offer a solid and well-tested starting point.
 
 \begin{figure}
 	\centering
@@ -359,15 +359,15 @@ The project is developed in \href{https://www.erlang.org/}{Erlang}. For the deve
 
 \section{Getting Started}
 \subsection{Project Structure}
-The project is organized in two different Erlang application: Vehicle and Environment. These can be found in the \verb|apps/| directory. Then there is the \verb|test/| directory which contains some scripts to start the tests (described in Chapter~\ref{ch:validation}), and the vehicle generator module. Last but not least there is the \verb|docker/| folder and the \verb|Dockerfile|, that are used to test the project with \href{https://www.docker.com/}{Docker} (even this is described in Chapter~\ref{ch:validation}).
+The project is organized in two different Erlang application: Vehicle and Environment. These can be found in the \verb|apps/| directory. The \verb|test/| directory contains some scripts to start the tests (described in Chapter~\ref{ch:validation}), and the vehicle generator module. Last but not least there is the \verb|docker/| directory and the \verb|Dockerfile|, that are used to test the project with \href{https://www.docker.com/}{Docker} (described in Chapter~\ref{ch:validation}).
 
 \subsection{Hands On}
-To handle the whole project is provided a \emph{makefile}, which lets to compile and clean the project, and provide also a couple of demos.
+A \emph{makefile} is provided to handle the whole project, which helps to easily compile and clean the project, and provide also a couple of demos.
 
 Make commands are described here:
 \begin{itemize}
 	\item \verb|make demo| performs a demo with erlang nodes generated in local host.
-	\item \verb|make dockerdemo| performs a demo using Docker. Note that this commad will create some containers and a docker network on your computer. If you want to clean up everything later see \verb|make clean|.
+	\item \verb|make dockerdemo| performs a demo using Docker. Note that this commad will create some containers and a docker network on your computer. If you want to clean up everything later use \verb|make clean|.
 	\item \verb|make| (which is the same as \verb|make apps|) compiles just the apps: environment and vehicl.
 	\item \verb|make all| does what \verb|make| do, but it compiles also the generator module and gives the scripts the execution permissions.
 	\item \verb|make docker| does what \verb|make all| do, but it compiles also the Docker stuff.
@@ -398,7 +398,7 @@ Vehicle components communicate by producing and receiving event notifications. A
 
 Components can be connected to sensors and other external devices in order to successfully deliver their functionality. External devices are referred to as probes.
 The responsibility of probes is to collect external events from the environment or other vehicles and forward them to the component to which they are attached to.
-External events received by components and translated them into internal events.
+External events received by components are translated into internal events.
 
 
 The Coordinator listens to specific internal events in order to coordinate the components to reach the vehicle's goal.
@@ -419,7 +419,7 @@ This subsection presents the architectural elements: Event Manager, Components a
 Components communicate by sending event notifications to the Event Manager.
 Being not real messages, events have not a designed receiver: they are distributed by the Event Manager to Components that subscribed to that sort of events.
 
-The Event Manager acts as a middleware, inverting the logic of program execution, where a component does not need to know the existence of other components to provide its service and thus facilitatates the addition of new features and components.
+The Event Manager acts as a middleware, inverting the logic of program execution, where a component does not need to be aware of the existence of other components to provide its service and thus facilitates the addition of new features and components.
 
 \subsubsection{Components}
 
@@ -436,8 +436,8 @@ Active components are components that generate internal events. For example the 
 Components can have multiple devices attached (sensors, receivers, transmitters, etc.) in order to detect external events and provide their functionality.
 
 Components help to address the issues of event aggregation and transformation by making event notifications meaningful at the level of interpretation required for making other components activities effective. They effectively act as event mediators (or, correlators), translating external events into meaningful internal events.
-\\
-\newline
+
+
 \textbf{Component Structure}
 \\
 \newline
@@ -447,14 +447,24 @@ The structure of a component consists of:
 	\item event listener (optional)
 \end{itemize}
 
-\underline{The component module:}
-\\
+
+\begin{description}
+	\addtolength{\itemindent}{0.2cm}
+	\item[The component module:] \hfill \\
 The component module maintains all the logic related to the specific service it is built for, for example a component in charge of the navigation system deals with navigation related tasks only.
 
 The component module can be connected to zero or more devices in order to provide its services, for example the navigation component can use a GPS device to gather geolocation data. 
-\\
+
 
 When needed, components can spawn additional processes called Actions to perform more advanced and complicated tasks (Actions can also be used for enabling the selection of algorithms at runtime, effectively letting the algorithm vary independently from the component, a strategy pattern in OO terms).
+
+	
+	\item[The event Listener:] \hfill \\
+A component module can have zero or more event listeners attached to the Event Manager. Event listeners are responsible for listening and forwarding internal events that are of interest to the component module.
+
+A component that provides a service must have an event listener in order to receive requests from other components. Event listeners are event handlers in Erlang terminology.
+	
+\end{description}
 
 \begin{figure}
 	\centering
@@ -463,15 +473,8 @@ When needed, components can spawn additional processes called Actions to perform
 	\label{fig:component-and-action}
 \end{figure}
 
-Picture ~\ref{fig:component-and-action} shows a component with its actions in the supervision tree. Actions are attached to a specific supervisor (the Action Supervisor) which is unique for each component.
+Figure ~\ref{fig:component-and-action} shows a component with its actions in the supervision tree. Actions are attached to a specific supervisor (the Action Supervisor) which is unique for each component.
 \\
-
-\underline{The event Listener:}
-
-
-A component module may have zero or more event listeners attached to the Event Manager. Event listeners are responsible for listening and forwarding internal events that are of interest to the component module.
-
-A component that provides a service must have an event listener in order to receive requests from other components. Event listeners are event handlers in Erlang terminology.
 
 \begin{figure}
 	\centering
@@ -533,44 +536,48 @@ Returning to the step when the Coordinator requests the position type. If the Re
 The Coordinator uses the Communication Component in order to solve the intersection. The Communication Component contacts the intersection participants (vehicles at the entrances) and starts the intersection coordination (described in the next section). Once the vehicle is clear to move in the intersection, a notification is made to the Coordinator that the current position is \textit{free} and the algorithm takes on from (2).
 
 \subsection{Intersection Coordination}
-This module is the core of the crossing. Here is implemented the algorithm described in Section~\ref{sec:intersection-crossing-algorithm}. This module is an OTP \verb|gen_statem|.
+This module is the core of the crossing problem. Here is implemented the algorithm described in Section~\ref{sec:intersection-crossing-algorithm}. This module is an OTP \verb|gen_statem|.
 
-The main idea is to use as ID the couple \verb|(waiting_counter, nonce)|, where the nonce is a unique code for each vehicle (the Erlang node name), and the waiting counter is a counter that is zero when a vehicle approach the interception, and increases by one for each \verb|crossed| message it receives, i.e. every time the leader cross, the participants increase their counter. In this way, every time an election is performed, the priority goes to the ones that waited longer. 
+The main idea is to use as ID the couple \verb|(waiting_counter, nonce)|, where the nonce is a unique code for each vehicle (the Erlang node name), and a waiting counter which is zero when a vehicle approaches the intersection, and increases by one for each \verb|crossed| message it receives, i.e. every time the leader crosses, the participants increase their counters. This way, every time an election is performed, the priority goes to the ones that waited longer. 
 
-Moreover, is important to guarantee that no one steal the leader title to a candidate who received promotion from the previous leader --- as specified in Subsection~\ref{subsec:abnormal-cases}. To do so, when a leader pass the lead to the candidate, the candidate set its wait counter to $N$, where we define $N$ as the number of interception entrances. This guarantees what stated before, because no one can wait more than $N$, or better: every vehicle waiting counter reach at most $N - 1$. So, if an election is performed, the candidate will win for sure. Setting the counter to less than this can lead to problems.
+Moreover, is important to guarantee that no one steals the leader title to a candidate who received the promotion from the previous leader --- as specified in Subsection~\ref{subsec:abnormal-cases}. To do so, when a leader passes the lead to the candidate, the candidate set its waiting counter to $N$, where we define $N$ as the number of intersection entrances. This guarantees what stated before, because no one can wait more than $N$, or better: every vehicle waiting counter reach at most $N - 1$. So, if an election is started, the candidate wins for sure. Setting the counter to less than this can lead to problems.
 
-Last important part is that since no one knows others IDs, it is necessary to exchange that information while performing the election, so the algorithm is developed as follows:
+The last important part is that since no one knows others IDs, it is necessary to exchange that information while performing the election, so the algorithm is developed as follows:
 
 \begin{itemize}
 	\item to start the election send election message with my ID, and start waiting for answers;
-	\item if an answer is received then this means there exists someone with an higher ID, and I start to wait for the coordinator message;
-	\item if an election message is received, see the ID inside, and compare it with mine. If the ID received is higher I start waiting for a coordinator message, otherwise I forward the election message to all participants, with my ID inside, and then, start waiting for answers;
-	\item if I don't receive any answer message, I understand I have the maximum ID, so I am the leader and I sen the coordinator message.
+	\item if an answer is received, this means there exists someone with a higher ID and I have to wait for the coordinator message;
+	\item if an election message is received, check the ID inside and compare it with mine. If the ID received is higher I wait for a coordinator message, otherwise I forward the election message to all participants, with my ID inside, and then, start waiting for answers;
+	\item if I don't receive any answer, I can derive that I have the maximum ID, so I am the leader and I send the coordinator message.
 \end{itemize}
 
-Some timeouts are necessary to develop this idea. All the details can be found in the code.
+Some timeouts are necessary to develop this idea. All the details are found in the code.
 
-\section{Development Details: Environment and Vehicle Generator}
-The Environment is an application where its core part is an OTP \verb|gen_server|, which act as a substitute of the vehicle sensors. It provides mainly the functions described in the functional requirements analysis.
+\section{Development Details: Environment, Vehicle Generator and Vehicle log files}
+The Environment is an application that uses the OTP \verb|gen_server| behaviour and acts as a substitute of the vehicle sensors. It provides mainly the functions described in the functional requirements analysis.
 
-The interception graph is provided in a configuration file inside the \verb|config/| directory. The syntax is trivial, so starting from the configuration file provided is easy to build a different graph. Note that are not performed checks on the graph structure, so it is up to the user to provide a correct configuration file.
+The intersection graph is provided in a configuration file inside the \verb|config/| directory. The syntax is trivial. It is easy to build a different graph from the configuration file provided. Note that validation is not performed on the graph structure, so it is up to the user to provide a correct configuration file.
 
-To manage the graph, the \emph{digraph} Erlang module is used. In particular the route from the starting position until the destination is the shortest path between the two nodes in the graph.
+The \emph{digraph} Erlang module is used to manage the graph. In particular the route from the starting position until the destination is the shortest path between the two nodes in the graph.
 
 \bigskip
-The generator is a simple OTP \verb|gen_server|, which offers only the function \verb|start()|, with different tunable parameters. Details of this module are described in next chapter.
+The generator is a simple OTP \verb|gen_server|, which offers only the function \verb|start()|, with different tunable parameters. Details of this module are described in the next chapter.
+
+\bigskip
+Vehicles generate log files inside the \verb|log/| directory. Logs are related to internal events and are categorised in 5 levels: Error, Warning, Info, Debug and Verbose. Log levels are used when formatting the text. 
+
 
 \chapter{Validation}\label{ch:validation}
-The validation part consisted in three main phases. First of all the project was tested with few vehicles generated singularly into different shells, with Erlang nodes created on local machine. After the initial validation, simulating peculiar situation manually (software and mechanical failures, vehicles arrival at specific times, \dots), the software has undergone numerous tests with the help of the vehicle generator described in the previous chapter, even this with Erlang nodes on local machine. Finally, exploiting Docker facilities, we tested the project even in distributed containers on different hosts in a virtual network.
+The validation part consisted in three main phases. First of all the project was tested with few vehicles generated singularly into different shells, with Erlang nodes created on local machine. After the initial validation, simulating peculiar situations manually took place (software and mechanical failures, vehicles arrival at specific times, \dots), the software has undergone numerous tests with the help of the vehicle generator described in the previous chapter, all tests were performed on nodes locally. Finally, with the help of Docker, we tested the project with containers locally in a virtual network in order to simulate a real-life scenario where each vehicle is an independent system.
 
 The project has been tested on Fedora 30 with Erlang/OTP 21, and on Ubuntu 18.04 LTS with Erlang/OTP 22.
 
-After careful planning and developing, and after all these tests phases, we are confident of providing a reliable and sound solution. In next sections is described how to reproduce the tests. All the scripts provided have been tested only on cited above operative systems, same results are not guaranteed in Mac OS or Windows.
+After carefully planning, developing and testing the system, we are confident of providing a reliable and sound solution. Next sections describe how to reproduce the tests. All the scripts provided have been tested only on cited above operative systems, same results are not guaranteed in Mac OS or Windows.
 
-To perform tests is necessary to have in mind the graph of the interception presented in Figure~\ref{fig:config-graph}. Moreover, for the test with the generator and with docker, the scripts will not exit at the end of the simulation, because we can't understand when all vehicles have finished, but you can easily check that if for about a minute nothing is printed, then the simulation is over, and you can kill the script with \verb|ctrl+C| and then \verb|(a)bort|.
+To perform the tests it is necessary to have in mind the graph of the intersection presented in Figure~\ref{fig:config-graph}. Moreover, for the test with the generator and docker, the scripts will not exit at the end of the simulation because we do not know when will the vehicles terminated their route, but you can easily check that if for about a minute nothing is printed, then the simulation is over, and you can kill the script with \verb|ctrl+C| and then \verb|(a)bort|.
 
 \section{Simple Tests}
-To use the code proposed here is necessary to execute \texttt{make all}. Some scripts are provided in the direcotry \texttt{test/}. Note that is is important to execute the script provided from the project root.
+To use the code proposed here it is necessary to execute \texttt{make all}. Some scripts are provided in the direcotry \texttt{test/}. Note that is is important to execute the script provided from the project root.
 
 First of all it is necessary to start the environment. To do it open a shell and run:
 \begin{verbatim}
@@ -578,16 +585,16 @@ First of all it is necessary to start the environment. To do it open a shell and
 \end{verbatim}
 You should se now an Erlang shell with the message ``Env started!''.
 
-Now it is time to produce vehicles: pretty easy, open another shell and run:
+Now it is time to create vehicles: pretty easy, open another shell and run:
 \begin{verbatim}
 ./test/start_vehicle.sh 1 R_1 R_30
 \end{verbatim}
 Where, the first parameter is the index of the vehicle to generate --- note that if you insert $x$ the erlang node will be \verb|v|$x$\verb|@hostname|. The second and the third parameters are the start position, and the destination position, chosen from the graph in Figure~\ref{fig:config-graph}. One can also start a vehicle from other positions chosen from $R_x$ or $IN_x$, to test different situations.
 
-You will see that in every vehicle shell is printed what it is doing, and more information can be found in the vehicle logs inside the \texttt{log/} directory.
+You can see that every vehicle shell prints what the vehicle is doing, more information can be found in the vehicle logs inside the \texttt{log/} directory.
 
 \section{Vehicle Generator}
-To use the code proposed here is necessary to execute \texttt{make all}. To start the vehicle generator can be used the script inside the \texttt{test/} directory, as follows:
+To use the code presented here it is necessary to execute \texttt{make all}. To start the vehicle generator the script inside the \texttt{test/} directory can be used as follows:
 \begin{verbatim}
 ./test/start_generator.sh <vehicle number> <fail ratio> \
 	[relaive sw fail ratio] [max fail timeout (ms)]
@@ -598,15 +605,15 @@ for example you can try:
 \end{verbatim}
 Where:
 \begin{itemize}
-	\item \verb|<vehicle number>| is mandatory and represent the number of vehicles that will be generated.
-	\item \verb|<fail ratio>| is mandatory and represent the percentage (expressed with a number $0 \le x \le 1$) of failures that will be generated.
-	\item \verb|[relaive sw fail ratio]| is optional and represent the ratio of software failures caused by the generator. (e.g. if set to $0.5$, half faults will be software, and the other half will be mechanical).
+	\item \verb|<vehicle number>| is mandatory and represents the number of vehicles that will be generated.
+	\item \verb|<fail ratio>| is mandatory and represents the percentage (expressed with a number $0 \le x \le 1$) of failures that will be generated.
+	\item \verb|[relaive sw fail ratio]| is optional and represents the ratio of software failures caused by the generator. (e.g. if set to $0.5$, half faults will be software, and the other half will be mechanical).
 	\item \verb|[max fail timeout (ms)]| represent the maximum time in milliseconds within which the fault will be caused, considering the moment when the vehicle starts. (e.g. if set to $20000$, the vehicle can fail after a maximum of $20s$ from its start).
 \end{itemize}
-To stop the execution press \verb|ctrl+C| and then \verb|(a)bort|. The information here are printed all in the same shell, so it is less clear what is happening, but the logs for each vehicle can be found in the \verb|log/| directory.
+To stop the execution press \verb|ctrl+C| and then \verb|(a)bort|. The information here is all printed in the same shell, so it is less clear what is happening, but the logs for each vehicle can be found in the \verb|log/| directory.
 
 \section{Docker}
-To use the code proposed here is necessary to execute \texttt{make docker}. Note that with the tests proposed here is required to have docker installed and configured properly. Some containers, and a network, will be created. In \verb|docker/| directory are provided some script to easily run the tests and also to stop and clean the containers and network created.
+To use the code presented here it is necessary to execute \texttt{make docker}. Note that in order to run the tests proposed here it is required to have docker installed and configured properly. Some containers, and a network, will be created. In \verb|docker/| directory are provided some script to easily run the tests and also to stop and clean the local machine from containers and the network created.
 
 The command to run is:
 \begin{verbatim}
@@ -618,7 +625,7 @@ for example you can try:
 ./docker/start_docker.sh 10 0.2 0.5 20000
 \end{verbatim}
 Where the parameters are the same of the vehicle generator described in the previous section.
-Note that in docker you will se only messages printed from the generator. To see what happens to the vehicles you can look at the \verb|docker_log/| directory, where all vehicles log are generated. Further, can be necessary to provide root permission to delete \verb|docker_log/| directory, because the files are generated by root user inside the containers, so the proprietary user is still root.
+Note that in docker you will se only messages printed from the generator. To see what happens to the vehicles you can look at the \verb|docker_log/| directory, where all vehicles log are generated. Further, it can be necessary to provide root permission to delete the \verb|docker_log/| directory, because the files are generated by root user inside the containers, so the proprietary user is still root.
 After stopping the simulation, everything can be cleaned with:
 \begin{verbatim}
 ./docker/clean_docker.sh
@@ -630,7 +637,7 @@ The proposed solution focuses on a very simplified version of what a real soluti
 \section{Partial implementation and future work}
 Some advancement that can be pursued starting from our solution are provided here. Some of them are easier than other, but due to lack of time we did not managed to deepen them:
 \begin{itemize}
-	\item Try different interception graphs;
+	\item Try different intersection graphs;
 	\item Centralize some configuration parameters in such a way the solution can be tuned without recompiling;
 	\item Exploit code change feature offered by Erlang;
 	\item Develop a graphical interface of the environment to better understand how vehicles are moving;
