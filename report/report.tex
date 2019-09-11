@@ -530,7 +530,7 @@ The Coordinator can either receive that the vehicle in front is \textit{up} (sof
 In either cases, after a period of waiting, the vehicle moves in the position in front and the algorithm starts from (1).
 \\
 
-Returning to the step when the Coordinator requests the position type. If the Recognition Component’s answer is \textit{stop}, the vehicle is at the entrance to an intersection (for the reasons stated above) and has to stop to resolve the intersection crossing with vehicles at the other entrances in order to avoid potential collisions.
+Returning to the step when the Coordinator requested the position type. If the Recognition Component’s answer is \textit{stop}, the vehicle is at the entrance to an intersection (for the reasons stated above) and has to stop to resolve the intersection crossing with vehicles at the other entrances in order to avoid potential collisions.
 \\
 
 The Coordinator uses the Communication Component in order to solve the intersection. The Communication Component contacts the intersection participants (vehicles at the entrances) and starts the intersection coordination (described in the next section). Once the vehicle is clear to move in the intersection, a notification is made to the Coordinator that the current position is \textit{free} and the algorithm takes on from (2).
