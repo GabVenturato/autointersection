@@ -1,5 +1,5 @@
-%%% This module is the event handler for the coordinator listening to recognition
-%%% events sent by the recognition component.
+%%% This module is the event handler for the coordinator listening to 
+%%% recognition events sent by the recognition component.
 
 -module(recognition_event_handler).
 -behavior(gen_event).
@@ -12,7 +12,10 @@
 
 init([Pid]) -> {ok, Pid}.
 
-handle_event(#event{type = notification, name = position_type, content = Type}, Pid) ->
+handle_event(
+    #event{type = notification, name = position_type, content = Type},
+    Pid
+  ) ->
   gen_server:call(Pid, {position_type, Type}),
   {ok, Pid};
 

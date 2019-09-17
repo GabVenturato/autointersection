@@ -14,11 +14,14 @@
 
 init([Pid]) -> {ok, Pid}.
 
-handle_event(#event
-    { type = notification
-    , name = position_changed
-    , content = {OldPos, NewPos}
-    }, Pid) ->
+handle_event(
+    #event
+      { type = notification
+      , name = position_changed
+      , content = {OldPos, NewPos}
+      }, 
+    Pid
+  ) ->
   gen_server:call(Pid, {update_position, {OldPos, NewPos}}),
   {ok, Pid};
 

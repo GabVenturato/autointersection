@@ -1,9 +1,10 @@
-%%% This module is the event handler for the communication component listening to
-%%% relevant events.
+%%% This module is the event handler for the communication component listening
+%%% to relevant events.
 
 -module(com_event_handler).
 -behavior(gen_event).
--export([init/1, handle_event/2, handle_call/2, handle_info/2, code_change/3, terminate/2]).
+-export([ init/1, handle_event/2, handle_call/2, handle_info/2, code_change/3
+        , terminate/2]).
 
 -include("event.hrl").
 
@@ -12,11 +13,17 @@
 init([Pid]) -> 
   {ok, Pid}.
 
-handle_event(#event{type = request, name = handle_position_type, content = Type}, Pid) ->
+handle_event(
+    #event{type = request, name = handle_position_type, content = Type},
+    Pid
+  ) ->
   gen_server:cast(Pid, {handle_position_type, Type}),
   {ok, Pid};
 
-handle_event(#event{type = notification, name = vehicle_down, content = Vehicle}, Pid) ->
+handle_event(
+    #event{type = notification, name = vehicle_down, content = Vehicle},
+    Pid
+  ) ->
   gen_server:cast(Pid, {vehicle_down, Vehicle}),
   {ok, Pid};
 

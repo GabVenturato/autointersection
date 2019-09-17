@@ -54,7 +54,10 @@ start_link(CompDetails) ->
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([CompDetails]) ->
-  register_event_handler(CompDetails#component.event_manager, ?EVENT_HANDLER_ID),
+  register_event_handler(
+    CompDetails#component.event_manager,
+    ?EVENT_HANDLER_ID
+  ),
   {ok, CompDetails#component{handler = ?EVENT_HANDLER_ID}}.
 
 handle_call(_, _From, State) -> {reply, ok, State}.
@@ -111,7 +114,10 @@ start_intersection_coordination(State) ->
   Probe = State#component.probe,
   EvMan = State#component.event_manager,
   internal:log(EvMan, "Solving intersection..."),
-  {ok, SupPid} = supervisor:start_child(State#component.supervisor, ?SUP_SPEC([])),
+  {ok, SupPid} = supervisor:start_child(
+    State#component.supervisor,
+    ?SUP_SPEC([])
+  ),
   supervisor:start_child(SupPid, ?INTER_CROSS_SPEC([Probe, EvMan])).
 
 %% Returns the pid of the vehicle at the specified position.

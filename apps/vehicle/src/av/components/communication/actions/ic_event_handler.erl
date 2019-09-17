@@ -14,11 +14,14 @@ init([Pid]) ->
   {ok, Pid}.
 
 %% If vehicle finished the crossing
-handle_event(#event
-  { type = notification
-  , name = position_type
-  , content = intersection_exit}
-  , Pid) ->
+handle_event(
+    #event
+      { type = notification
+      , name = position_type
+      , content = intersection_exit
+      }, 
+    Pid
+  ) ->
   gen_statem:cast( Pid, crossing_complete ),
   {ok, Pid};
 

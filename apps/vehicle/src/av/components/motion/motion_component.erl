@@ -35,7 +35,10 @@ start_link(CompDetails) ->
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([CompDetails]) ->
-  register_event_handler(CompDetails#component.event_manager, ?EVENT_HANDLER_ID),
+  register_event_handler(
+    CompDetails#component.event_manager, 
+    ?EVENT_HANDLER_ID
+  ),
   {ok, CompDetails#component{handler = ?EVENT_HANDLER_ID}}.
 
 handle_call(_, _From, State) ->
@@ -65,7 +68,10 @@ handle_info({'DOWN', MonitorReference, process, Pid, Reason}, State) ->
     normal ->
       internal:log(EvMan, "Vehicle in front is down for normal reasons!");
     _ ->
-      internal:log(EvMan, "Vehicle in front has sw crashed! Waiting for the tow truck..."),
+      internal:log(
+        EvMan, 
+        "Vehicle in front has sw crashed! Waiting for the tow truck..."
+      ),
       {_, Vehicle} = Pid,
       internal:event(EvMan, notification, vehicle_down, Vehicle)
   end,
@@ -104,8 +110,14 @@ verify_position(Position, Object, State) ->
   EvMan = State#component.event_manager,
   case Object of
     {vehicle, VehicleInFront} -> 
-      internal:log(EvMan, lists:concat(["A vehicle is in front: ", VehicleInFront])),
-      MonitorRef = erlang:monitor(process, {vehicle_supervisor, VehicleInFront}),
+      internal:log(
+        EvMan, 
+        lists:concat(["A vehicle is in front: ", VehicleInFront])
+      ),
+      MonitorRef = erlang:monitor(
+        process, 
+        {vehicle_supervisor, VehicleInFront}
+      ),
       receive_position_update(Position, MonitorRef, State);
     _ ->  
       internal:log(EvMan, "Overtaking the object in front..."),

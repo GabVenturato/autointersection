@@ -90,7 +90,12 @@ start(Sup, Route, Components) ->
   gen_server:start({local, ?MODULE}, ?MODULE, [Sup, Route, Components], []).
 
 start_link(Sup, Route, Components) ->
-  gen_server:start_link({local, ?MODULE}, ?MODULE, [Sup, Route, Components], []).
+  gen_server:start_link(
+    {local, ?MODULE}, 
+    ?MODULE, 
+    [Sup, Route, Components], 
+    []
+  ).
 
 
 %%% -------------------------- Callback Functions -------------------------- %%%
@@ -179,7 +184,10 @@ handle_cast(moved, State) ->
   EvMan = State#state.event_manager,
   OldRoute = State#state.route,
   NewRoute = make_a_step(OldRoute),
-  internal:log(EvMan, lists:concat(["Vehicle moved in position: ", hd(NewRoute)])),
+  internal:log( 
+    EvMan, 
+    lists:concat( ["Vehicle moved in position: ", hd( NewRoute )] )
+  ),
   update_position(EvMan, hd(OldRoute), hd(NewRoute)),
   check_positon_type(EvMan, current_position(NewRoute)),
   {noreply, State#state{route = NewRoute}};
@@ -188,7 +196,10 @@ handle_cast(moved, State) ->
 handle_cast(breakdown, State) ->
   % Sup = State#state.supervisor,
   EvMan = State#state.event_manager,
-  internal:log(State#state.event_manager, "Mechanical failure. Tow truck will take care of me."),
+  internal:log(
+    State#state.event_manager,
+    "Mechanical failure. Tow truck will take care of me."
+  ),
   internal:event(EvMan, notification, vehicle_breakdown, []),
   timer:sleep(?TOW_TRUCK_TIME),
   update_position(EvMan, current_position(State#state.route), []),
@@ -218,8 +229,8 @@ start_component(Sup, C = #component{module = Module}, EvMan) ->
                                                       event_manager = EvMan,
                                                       supervisor = Sup})).
 
-%% Function necessary to 'startup the vehicle', to start the whole vehicle logic.
-%% Startup the vehicle from position 'Pos'.
+%% Function necessary to 'startup the vehicle', to start the whole vehicle
+%% logic. Startup the vehicle from position 'Pos'.
 startup_vehicle(Pos, State) ->
   case Pos of
     [] -> false;

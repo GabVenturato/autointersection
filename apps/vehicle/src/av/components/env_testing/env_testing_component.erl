@@ -28,11 +28,17 @@ start_link(CompDetails) ->
 %%% -------------------------- Callback Functions -------------------------- %%%
 
 init([CompDetails]) ->
-  register_event_handler(CompDetails#component.event_manager, ?EVENT_HANDLER_ID),
+  register_event_handler(
+    CompDetails#component.event_manager, 
+    ?EVENT_HANDLER_ID
+  ),
   {ok, CompDetails#component{handler = ?EVENT_HANDLER_ID}}.
 
 handle_call({update_position, {OldPos, NewPos}}, _From, State) ->
-  gen_server:call(State#component.probe, {update_position, {node(), OldPos, NewPos}}),
+  gen_server:call(
+    State#component.probe, 
+    {update_position, {node(), OldPos, NewPos}}
+  ),
   {reply, ok, State}.
 
 handle_cast(_, State) ->
