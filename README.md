@@ -3,8 +3,8 @@ A distributed solution to let autonomous vehicles cross an intersection without
 relying on a central server.
 
 ## Requirements
-1. OS: Ubuntu 18.04 LTS (or above), Fedora 30 (or above).
-2. Erlang/OTP 21 or 22
+1. OS: Ubuntu 18.04 LTS (or above), Fedora 30 (or above), MacOS Mojave (or above).
+2. Erlang/OTP 21 or 22.
 
 Scripts won't run on a non Unix-like OS while the Erlang code will.
 
@@ -50,3 +50,6 @@ Where:
 To stop the execution press **ctrl+C** and then **(a)bort**. The information is all printed in the same shell, so it is less clear as what is happening. The logs for each vehicle can be found in the **log/** directory.
 
 Tests with Docker can also be performed, see Chapter 5 (Validation) in the report for more information.
+
+## Known bugs
+- Causing a `badarith` exception on a component does not cause the whole supervision tree to be terminated, and so the application won't be killed.
