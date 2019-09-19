@@ -42,8 +42,8 @@ In order to spawn multiple vehicles at random locations run the following comman
 `./test/start_generator.sh <vehicle number> <fail ratio> [relaive sw fail ratio] [max fail timeout (ms)]`
 
 Where:
-1. *<vehicle number>* is mandatory and represents the number of vehicles that will be generated.
-2. *<fail ratio>* is mandatory and represents the percentage (expressed as a number 0 <= x <= 1) of failures that will be generated.
+1. *`<vehicle number\>`* is mandatory and represents the number of vehicles that will be generated.
+2. *`<fail ratio>`* is mandatory and represents the percentage (expressed as a number 0 <= x <= 1) of failures that will be generated.
 3. *[relaive sw fail ratio]* is optional and represents the ratio of software failures caused by the generator. (e.g. if set to 0.5, half of the faults will be software and the other half will be mechanical).
 4. *[max fail timeout (ms)]* represent the maximum time in milliseconds within which the fault will be caused, considering the moment when the vehicle starts. (e.g. if set to 20000, the vehicle can fail after a maximum of 20s from its start).
 
