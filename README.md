@@ -53,3 +53,4 @@ Tests with Docker can also be performed, see Chapter 5 (Validation) in the repor
 
 ## Known bugs
 - Causing a `badarith` exception on a component does not cause the whole supervision tree to be terminated, and so the application won't be killed.
+- On MacOS the script `start_vehicle.sh` does not work. Probably due to parameters parsing problem.
