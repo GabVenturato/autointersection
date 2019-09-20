@@ -58,7 +58,7 @@ do
 done
 
 # Remove the last ',' and close the list
-NODE_LIST="${LIST::-1}]"
+NODE_LIST=$(echo $LIST | sed 's/.$//')"]"
 
 # Start main container (for the environment and generator) and attach it to the network.
 docker run --name main --network=$NETWORK_NAME -t -d --rm erlang-autointersection:1.0
